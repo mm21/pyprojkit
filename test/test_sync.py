@@ -41,6 +41,22 @@ def test_render_managed_content(project: Path, config: ProjectConfig):
     assert list(doc["project"]["dependencies"]) == ["requests>=2,<3"]
 
 
+def test_managed_comments(project: Path, config: ProjectConfig):
+    sync(config, project)
+    text = (project / "pyproject.toml").read_text()
+
+    # managed tables, requires-python, and version classifiers are marked
+    assert "[tool.black]  # managed by pyprojkit" in text
+    assert "[tool.pyprojkit]  # managed by pyprojkit" in text
+    assert 'requires-python = ">=3.12,<3.14"  # managed by pyprojkit' in text
+    assert '"Programming Language :: Python :: 3.12",  # managed by pyprojkit' in text
+
+    # unmanaged content is not marked
+    for line in text.splitlines():
+        if "Development Status" in line or "[tool.custom]" in line:
+            assert "managed by pyprojkit" not in line
+
+
 def test_idempotent(project: Path, config: ProjectConfig):
     text = (project / "pyproject.toml").read_text()
     once = render(config, text)

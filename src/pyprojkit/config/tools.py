@@ -107,6 +107,10 @@ class TomlSortConfig(BaseFormatterConfig):
     )
     sort_table_keys: bool | None = True
 
+    # explicit since the toml-sort CLI and library defaults disagree; must be
+    # pinned so the sync engine's normalization and the format task agree
+    spaces_before_inline_comment: int | None = 2
+
     def command(self, py_paths: list[str], toml_paths: list[str]) -> list[str]:
         return ["toml-sort", "-i"] + toml_paths
 

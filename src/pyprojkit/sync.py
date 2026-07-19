@@ -40,6 +40,8 @@ __all__ = [
 
 _CLASSIFIER_RE = re.compile(r"^Programming Language :: Python :: \d+(\.\d+)?$")
 
+_MANAGED_COMMENT = "managed by pyprojkit"
+
 
 def compute_managed_tables(config: ProjectConfig) -> dict[str, dict[str, Any]]:
     """
@@ -79,6 +81,7 @@ def render(config: ProjectConfig, text: str) -> str:
         raise ConfigError("pyproject.toml has no [project] table")
 
     project["requires-python"] = config.python.requires_python
+    project["requires-python"].comment(_MANAGED_COMMENT)
     _update_classifiers(project, config)
 
     tables = compute_managed_tables(config)
@@ -136,11 +139,21 @@ def sync(
 def _update_classifiers(project: Table, config: ProjectConfig):
     """
     Replace python version classifiers with those derived from config, preserving all
-    others; result is sorted.
+    others; result is sorted, with managed entries marked by an inline comment.
     """
-    existing = cast(list[str], list(project.get("classifiers", [])))
+    existing = cast(list[str], [str(c) for c in project.get("classifiers", [])])
     kept = [c for c in existing if not _CLASSIFIER_RE.match(c)]
-    project["classifiers"] = _to_item(sorted(set(kept + config.python.classifiers)))
+    managed = set(config.python.classifiers)
+
+    array = tomlkit.array()
+    for entry in sorted(set(kept) | managed):
+        array.add_line(
+            entry,
+            indent="  ",
+            comment=_MANAGED_COMMENT if entry in managed else None,
+        )
+    array.add_line(indent="")
+    project["classifiers"] = array
 
 
 def _get_managed_list(doc: TOMLDocument) -> list[str]:
@@ -162,6 +175,7 @@ def _set_table(doc: TOMLDocument, path: str, content: dict[str, Any]):
             container = table
 
     leaf = tomlkit.table()
+    leaf.comment(_MANAGED_COMMENT)
     for key, value in content.items():
         leaf[key] = _to_item(value)
     container[parts[-1]] = leaf
@@ -215,10 +229,15 @@ def _normalize(config: ProjectConfig, text: str) -> str:
         return text
 
     from toml_sort import TomlSort
-    from toml_sort.tomlsort import SortConfiguration
+    from toml_sort.tomlsort import FormattingConfiguration, SortConfiguration
 
     sort_config = SortConfiguration(
         table_keys=bool(tomlsort_config.sort_table_keys),
         first=list(tomlsort_config.sort_first or []),
     )
-    return TomlSort(input_toml=text, sort_config=sort_config).sorted()
+    format_config = FormattingConfiguration(
+        spaces_before_inline_comment=tomlsort_config.spaces_before_inline_comment or 1,
+    )
+    return TomlSort(
+        input_toml=text, sort_config=sort_config, format_config=format_config
+    ).sorted()

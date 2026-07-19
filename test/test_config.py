@@ -98,6 +98,7 @@ def test_to_toml_key_mapping(config: ProjectConfig):
     assert tomlsort == {
         "sort_first": ["project", "dependency-groups", "build-system"],
         "sort_table_keys": True,
+        "spaces_before_inline_comment": 2,
     }
 
 
