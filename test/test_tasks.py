@@ -5,6 +5,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from doit.action import PythonAction
 
 from pyprojkit import AnalysisConfig, ConfigError, ProjectConfig, TaskFactory
 
@@ -28,7 +29,7 @@ def test_format_task(project: Path):
     assert task.name == "format"
 
     # actions in formatter order
-    cmds = [action.args[0] for action in task.actions]
+    cmds = [_py_action(action).args[0] for action in task.actions]
     assert [cmd[0] for cmd in cmds] == [
         "autoflake",
         "isort",
@@ -38,7 +39,7 @@ def test_format_task(project: Path):
     ]
 
     # docformatter tolerates rc 3
-    assert task.actions[3].args[1] == {0, 3}
+    assert _py_action(task.actions[3]).args[1] == {0, 3}
 
     # existing dirs and root files aggregated
     autoflake_cmd = cmds[0]
@@ -50,7 +51,7 @@ def test_format_task(project: Path):
 def test_test_task(project: Path):
     task = TaskFactory().create_test_task()()
     assert task.name == "test"
-    pytest_cmd = task.actions[1].args[0]
+    pytest_cmd = _py_action(task.actions[1]).args[0]
     assert "--cov=fixture_pkg" in pytest_cmd
     assert str(Path("__out__/test/junit.xml")) in " ".join(pytest_cmd)
 
@@ -66,8 +67,8 @@ def test_publish_task(project: Path):
     task = TaskFactory().create_publish_task()()
     assert task.name == "publish"
     # first action cleans the output dir
-    assert task.actions[0].args[0] == Path("__out__/uv")
-    build_cmd = task.actions[1].args[0]
+    assert _py_action(task.actions[0]).args[0] == Path("__out__/uv")
+    build_cmd = _py_action(task.actions[1]).args[0]
     assert build_cmd[:3] == ["uv", "build", "--out-dir"]
 
 
@@ -84,12 +85,12 @@ def test_opt_in_tasks(project: Path, config: ProjectConfig):
 
     # mkinit enabled by default
     task = factory.create_init_task()()
-    assert task.actions[0].args[0][:2] == ["mkinit", "src/fixture_pkg"]
+    assert _py_action(task.actions[0]).args[0][:2] == ["mkinit", "src/fixture_pkg"]
 
     # enable analysis
     enabled = replace(config, tools=replace(config.tools, analysis=AnalysisConfig()))
     task = TaskFactory(config=enabled).create_analysis_task()()
-    assert [a.args[0][0] for a in task.actions] == ["mypy", "pyright"]
+    assert [_py_action(a).args[0][0] for a in task.actions] == ["mypy", "pyright"]
 
 
 def test_doit_list_smoke(project: Path):
@@ -117,3 +118,8 @@ def test_doit_list_smoke(project: Path):
     assert result.returncode == 0, result.stderr
     listed = {line.split()[0] for line in result.stdout.splitlines() if line.strip()}
     assert {"sync", "format", "test", "badges", "publish", "init"} <= listed
+
+
+def _py_action(action: object) -> PythonAction:
+    assert isinstance(action, PythonAction)
+    return action

@@ -1,8 +1,10 @@
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 import tomlkit
+from tomlkit.items import Array, Table
 
 from pyprojkit import FormattingConfig, ProjectConfig, sync
 from pyprojkit.cli import main
@@ -16,8 +18,11 @@ def test_render_managed_content(project: Path, config: ProjectConfig):
     doc = tomlkit.parse(new)
 
     # requires-python and classifiers
-    assert doc["project"]["requires-python"] == ">=3.12,<3.14"
-    classifiers = list(doc["project"]["classifiers"])
+    project_table = _get_table(doc, "project")
+    assert project_table["requires-python"] == ">=3.12,<3.14"
+    classifiers_item = project_table["classifiers"]
+    assert isinstance(classifiers_item, Array)
+    classifiers = list(classifiers_item)
     assert "Programming Language :: Python :: 3.12" in classifiers
     assert "Programming Language :: Python :: 3.13" in classifiers
     assert "Programming Language :: Python :: 3.11" not in classifiers
@@ -26,19 +31,22 @@ def test_render_managed_content(project: Path, config: ProjectConfig):
     assert "Typing :: Typed" in classifiers
 
     # managed tool tables
-    tool = doc["tool"]
-    assert tool["black"]["target-version"] == ["py312", "py313"]
-    assert tool["pytest"]["ini_options"]["testpaths"] == "test"
-    assert tool["coverage"]["run"]["data_file"] == "__cache__/.coverage"
-    assert tool["doit"]["dep_file"] == "__cache__/.doit.db"
-    assert tool["nox"]["default_venv_backend"] == "uv"
+    assert _get_table(doc, "tool.black")["target-version"] == ["py312", "py313"]
+    assert _get_table(doc, "tool.pytest.ini_options")["testpaths"] == "test"
+    assert _get_table(doc, "tool.coverage.run")["data_file"] == "__cache__/.coverage"
+    assert _get_table(doc, "tool.doit")["dep_file"] == "__cache__/.doit.db"
+    assert _get_table(doc, "tool.nox")["default_venv_backend"] == "uv"
 
     # bookkeeping
-    assert "tool.black" in tool["pyprojkit"]["managed"]
+    managed = _get_table(doc, "tool.pyprojkit")["managed"]
+    assert isinstance(managed, Array)
+    assert "tool.black" in managed
 
     # foreign content preserved
-    assert tool["custom"]["keep"] is True
-    assert list(doc["project"]["dependencies"]) == ["requests>=2,<3"]
+    assert _get_table(doc, "tool.custom")["keep"] is True
+    dependencies = project_table["dependencies"]
+    assert isinstance(dependencies, Array)
+    assert list(dependencies) == ["requests>=2,<3"]
 
 
 def test_managed_comments(project: Path, config: ProjectConfig):
@@ -76,7 +84,7 @@ def test_sync_write_and_check(project: Path, config: ProjectConfig):
 def test_purge_dropped_tool(project: Path, config: ProjectConfig):
     sync(config, project)
     doc = tomlkit.parse((project / "pyproject.toml").read_text())
-    assert "docformatter" in doc["tool"]
+    assert "docformatter" in _get_table(doc, "tool")
 
     # drop all formatters except black and toml-sort
     slim = replace(
@@ -89,12 +97,13 @@ def test_purge_dropped_tool(project: Path, config: ProjectConfig):
     sync(slim, project)
 
     doc = tomlkit.parse((project / "pyproject.toml").read_text())
-    assert "docformatter" not in doc["tool"]
-    assert "autoflake" not in doc["tool"]
-    assert "isort" not in doc["tool"]
-    assert "black" in doc["tool"]
+    tool = _get_table(doc, "tool")
+    assert "docformatter" not in tool
+    assert "autoflake" not in tool
+    assert "isort" not in tool
+    assert "black" in tool
     # foreign table survives purge
-    assert doc["tool"]["custom"]["keep"] is True
+    assert _get_table(doc, "tool.custom")["keep"] is True
 
 
 def test_purge_prunes_empty_parents(project: Path, config: ProjectConfig):
@@ -105,8 +114,9 @@ def test_purge_prunes_empty_parents(project: Path, config: ProjectConfig):
     sync(no_test, project)
 
     doc = tomlkit.parse((project / "pyproject.toml").read_text())
-    assert "pytest" not in doc["tool"]
-    assert "coverage" not in doc["tool"]
+    tool = _get_table(doc, "tool")
+    assert "pytest" not in tool
+    assert "coverage" not in tool
 
 
 def test_tool_overrides(project: Path, config: ProjectConfig):
@@ -123,9 +133,11 @@ def test_tool_overrides(project: Path, config: ProjectConfig):
     sync(tweaked, project)
 
     doc = tomlkit.parse((project / "pyproject.toml").read_text())
-    assert doc["tool"]["pytest"]["ini_options"]["addopts"] == "-x"
-    assert doc["tool"]["pyright"]["typeCheckingMode"] == "strict"
-    assert "tool.pyright" in doc["tool"]["pyprojkit"]["managed"]
+    assert _get_table(doc, "tool.pytest.ini_options")["addopts"] == "-x"
+    assert _get_table(doc, "tool.pyright")["typeCheckingMode"] == "strict"
+    managed = _get_table(doc, "tool.pyprojkit")["managed"]
+    assert isinstance(managed, Array)
+    assert "tool.pyright" in managed
 
 
 def test_cli(project: Path):
@@ -137,3 +149,11 @@ def test_cli(project: Path):
 def test_cli_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
     assert main(["sync"]) == 2
+
+
+def _get_table(doc: tomlkit.TOMLDocument, path: str) -> Table:
+    item: Any = doc
+    for key in path.split("."):
+        item = item[key]
+    assert isinstance(item, Table)
+    return item
