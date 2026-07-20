@@ -91,6 +91,21 @@ def test_opt_in_tasks(project: Path, config: ProjectConfig):
     enabled = replace(config, tools=replace(config.tools, analysis=AnalysisConfig()))
     task = TaskFactory(config=enabled).create_analysis_task()()
     assert [_py_action(a).args[0][0] for a in task.actions] == ["mypy", "pyright"]
+    assert [_py_action(a).args[0][-1] for a in task.actions] == [
+        "src/fixture_pkg",
+        "src/fixture_pkg",
+    ]
+
+    # override packages location
+    flat = replace(enabled, packages_dir=".")
+    factory = TaskFactory(config=flat)
+    task = factory.create_init_task()()
+    assert _py_action(task.actions[0]).args[0][:2] == ["mkinit", "fixture_pkg"]
+    task = factory.create_analysis_task()()
+    assert [_py_action(a).args[0][-1] for a in task.actions] == [
+        "fixture_pkg",
+        "fixture_pkg",
+    ]
 
 
 def test_doit_list_smoke(project: Path):

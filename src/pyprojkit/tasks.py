@@ -236,13 +236,13 @@ class TaskFactory:
         Create `init` task which generates `__init__.py` files using mkinit.
         """
         mkinit = self._require(self._config.tools.doc.mkinit, "tools.doc.mkinit")
-        package = self._config.package
+        package_path = self._config.package_path
 
         def task_init() -> Task:
             return Task(
                 "init",
                 actions=[
-                    (run, (["mkinit", f"src/{package}", *mkinit.args],)),
+                    (run, (["mkinit", str(package_path), *mkinit.args],)),
                 ],
                 targets=[],
                 file_dep=[],
@@ -324,7 +324,7 @@ class TaskFactory:
         Create `analysis` task which runs static analysis tools.
         """
         analysis = self._require(self._config.tools.analysis, "tools.analysis")
-        package = self._config.package
+        package_path = self._config.package_path
 
         def task_analysis() -> Task:
             actions = []
@@ -340,14 +340,14 @@ class TaskFactory:
                                 str(_paths.MYPY_HTML_PATH),
                                 "--cobertura-xml-report",
                                 str(_paths.MYPY_XML_PATH),
-                                package,
+                                str(package_path),
                             ],
                         ),
                     )
                 )
 
             if analysis.pyright:
-                actions.append((run, (["pyright", package],)))
+                actions.append((run, (["pyright", str(package_path)],)))
 
             return Task(
                 "analysis",

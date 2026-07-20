@@ -5,6 +5,7 @@ Project-wide configuration, declared in a project's `pyprojconf.py`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Sequence
 
 from .. import _paths
@@ -182,6 +183,11 @@ class ProjectConfig:
     """
     Supported Python versions.
     """
+    packages_dir: str = "src"
+    """
+    Directory containing packages, relative to the project root.
+    """
+
     format_paths: Sequence[str] = ("src", "test", "doc", "examples")
     """
     Directories to format (those which exist), in addition to `*.py` and `*.toml` files
@@ -192,3 +198,10 @@ class ProjectConfig:
     """
     Tool configurations.
     """
+
+    @property
+    def package_path(self) -> Path:
+        """
+        Path to the package directory, relative to the project root.
+        """
+        return Path(self.packages_dir) / self.package

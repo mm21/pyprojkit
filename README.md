@@ -234,6 +234,7 @@ All tasks share the same layout:
 - `__cache__/`: caches (doit db, pytest cache, coverage data, nox envs)
 - `__out__/`: generated artifacts (`test/` coverage + JUnit results, `doc/html`, `analysis/`, `uv/` build artifacts)
 - `badges/`: generated badge SVGs
+- `src/<package>`: package sources consumed by the `init` and `analysis` tasks; the containing directory is configurable via `ProjectConfig.packages_dir` (default `"src"`)
 
 ## Custom profiles
 
