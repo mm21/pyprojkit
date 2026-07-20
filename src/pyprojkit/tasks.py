@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Callable
 
@@ -40,7 +41,22 @@ __all__ = [
     "TaskFactory",
 ]
 
-TaskCreator = Callable[..., Task]
+type TaskCreator = Callable[..., Task]
+
+
+def _normalize_svg(path: Path | str):
+    """
+    Rewrite SVG with attributes sorted, as genbadge doesn't order them
+    deterministically.
+    """
+    ET.register_namespace("", "http://www.w3.org/2000/svg")
+    ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
+    tree = ET.parse(path)
+    for elem in tree.iter():
+        attrib = sorted(elem.attrib.items())
+        elem.attrib.clear()
+        elem.attrib.update(attrib)
+    tree.write(path, encoding="unicode")
 
 
 class TaskFactory:
@@ -172,6 +188,8 @@ class TaskFactory:
                     (create_folder, [_paths.BADGES_PATH]),
                     (run, (tests_args,)),
                     (run, (cov_args,)),
+                    (_normalize_svg, [_paths.PYTEST_BADGE_PATH]),
+                    (_normalize_svg, [_paths.COV_BADGE_PATH]),
                 ],
                 targets=[
                     str(_paths.PYTEST_BADGE_PATH),
