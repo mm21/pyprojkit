@@ -1,3 +1,6 @@
+import contextlib
+import io
+from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -74,7 +77,8 @@ def test_idempotent(project: Path, config: ProjectConfig):
 
 def test_sync_write_and_check(project: Path, config: ProjectConfig):
     # out of sync initially
-    assert sync(config, project, check=True) is False
+    with _quiet():
+        assert sync(config, project, check=True) is False
 
     # write, then in sync
     assert sync(config, project) is True
@@ -141,14 +145,28 @@ def test_tool_overrides(project: Path, config: ProjectConfig):
 
 
 def test_cli(project: Path):
-    assert main(["sync", "--check"]) == 1
+    with _quiet():
+        assert main(["sync", "--check"]) == 1
     assert main(["sync"]) == 0
     assert main(["sync", "--check"]) == 0
 
 
 def test_cli_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
-    assert main(["sync"]) == 2
+    with _quiet():
+        assert main(["sync"]) == 2
+
+
+@contextlib.contextmanager
+def _quiet() -> Iterator[None]:
+    """
+    Suppress stdout/stderr since pytest runs with capture disabled (-s).
+    """
+    with (
+        contextlib.redirect_stdout(io.StringIO()),
+        contextlib.redirect_stderr(io.StringIO()),
+    ):
+        yield
 
 
 def _get_table(doc: tomlkit.TOMLDocument, path: str) -> Table:
