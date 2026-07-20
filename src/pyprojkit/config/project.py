@@ -82,6 +82,7 @@ class MkinitConfig:
     Arguments passed to mkinit.
     """
 
+
 @dataclass(kw_only=True)
 class SphinxConfig:
     """
@@ -99,6 +100,7 @@ class SphinxConfig:
     built documentation when the doc task is run with `--copy`.
     """
 
+
 @dataclass(kw_only=True)
 class DocConfig:
     """
@@ -115,11 +117,13 @@ class DocConfig:
     Enables the `doc` task; opt-in.
     """
 
+
 @dataclass(kw_only=True)
 class AnalysisConfig:
     """
     Static analysis configuration.
     """
+
     mypy: MypyConfig | None = field(default_factory=MypyConfig)
     pyright: bool = True
 
@@ -129,11 +133,14 @@ class PublishConfig:
     """
     Configuration for building and publishing via uv.
     """
+
     out_dir: str = str(_paths.UV_PATH)
     """
     Directory for build artifacts; cleaned before each build so stale artifacts are
     never published.
     """
+
+
 @dataclass(kw_only=True)
 class ToolsConfig:
     """
@@ -143,6 +150,7 @@ class ToolsConfig:
     `pyprojkit.config.profiles`. The default instance corresponds to the default
     profile.
     """
+
     formatting: FormattingConfig = field(default_factory=FormattingConfig.default)
     test: TestConfig | None = field(default_factory=TestConfig)
     doit: DoitConfig = field(default_factory=DoitConfig)
@@ -158,6 +166,7 @@ class ToolsConfig:
 
     A key not otherwise managed creates a new managed table.
     """
+
     @classmethod
     def default(cls) -> ToolsConfig:
         """
@@ -175,14 +184,17 @@ class ProjectConfig:
 
     A project's `pyprojconf.py` must define a module-level instance named `config`.
     """
+
     package: str
     """
     Import name of the package, e.g. `"trilium_alchemy"`.
     """
+
     python: PythonVersions
     """
     Supported Python versions.
     """
+
     packages_dir: str = "src"
     """
     Directory containing packages, relative to the project root.

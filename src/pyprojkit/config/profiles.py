@@ -39,8 +39,8 @@ def _default_formatting() -> FormattingConfig:
         formatters=(
             AutoflakeConfig(),
             IsortConfig(),
-            BlackConfig(),
             DocformatterConfig(),
+            BlackConfig(),
             TomlSortConfig(),
         )
     )

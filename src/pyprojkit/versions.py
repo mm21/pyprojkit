@@ -24,6 +24,7 @@ Updated along with pyprojkit releases; individual projects can override via
 `PythonVersions.patch_overrides`.
 """
 
+
 @dataclass(frozen=True)
 class PythonVersions:
     """
