@@ -117,7 +117,7 @@ python = PythonVersions(3, (12, 14), patch_overrides={(3, 14): "3.14.7"})
 
 Tool configurations are grouped by category under `ToolsConfig`, whose defaults constitute the default *profile*:
 
-- `formatting`: ordered chain of formatters; by default autoflake &rarr; isort &rarr; black &rarr; docformatter &rarr; toml-sort
+- `formatting`: ordered chain of formatters; by default autoflake &rarr; isort &rarr; docfmt &rarr; black &rarr; toml-sort
 - `test`: pytest + coverage settings
 - `doit`, `nox`: cache locations and backends
 - `doc`: documentation tools — mkinit (enabled by default) and sphinx (opt-in)

@@ -21,7 +21,7 @@ from .project import FormattingConfig, ToolsConfig
 from .tools import (
     AutoflakeConfig,
     BlackConfig,
-    DocformatterConfig,
+    DocfmtConfig,
     IsortConfig,
     TomlSortConfig,
 )
@@ -39,7 +39,7 @@ def _default_formatting() -> FormattingConfig:
         formatters=(
             AutoflakeConfig(),
             IsortConfig(),
-            DocformatterConfig(),
+            DocfmtConfig(),
             BlackConfig(),
             TomlSortConfig(),
         )

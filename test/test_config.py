@@ -4,6 +4,7 @@ from pyprojkit import (
     AutoflakeConfig,
     BlackConfig,
     ConfigError,
+    DocfmtConfig,
     DocformatterConfig,
     FormattingConfig,
     IsortConfig,
@@ -58,8 +59,8 @@ def test_default_profile():
     assert names == [
         "AutoflakeConfig",
         "IsortConfig",
+        "DocfmtConfig",
         "BlackConfig",
-        "DocformatterConfig",
         "TomlSortConfig",
     ]
     assert tools.test is not None
@@ -111,4 +112,6 @@ def test_formatter_commands():
     py, toml = ["a.py", "src"], ["pyproject.toml"]
     assert AutoflakeConfig().command(py, toml) == ["autoflake", "a.py", "src"]
     assert TomlSortConfig().command(py, toml) == ["toml-sort", "-i", "pyproject.toml"]
+    assert DocfmtConfig().command(py, toml) == ["docfmt", "a.py", "src"]
+    assert DocfmtConfig().expect_rc == {0}
     assert DocformatterConfig().expect_rc == {0, 3}

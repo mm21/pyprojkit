@@ -88,7 +88,7 @@ def test_sync_write_and_check(project: Path, config: ProjectConfig):
 def test_purge_dropped_tool(project: Path, config: ProjectConfig):
     sync(config, project)
     doc = tomlkit.parse((project / "pyproject.toml").read_text())
-    assert "docformatter" in _get_table(doc, "tool")
+    assert "docfmt" in _get_table(doc, "tool")
 
     # drop all formatters except black and toml-sort
     slim = replace(
@@ -102,7 +102,7 @@ def test_purge_dropped_tool(project: Path, config: ProjectConfig):
 
     doc = tomlkit.parse((project / "pyproject.toml").read_text())
     tool = _get_table(doc, "tool")
-    assert "docformatter" not in tool
+    assert "docfmt" not in tool
     assert "autoflake" not in tool
     assert "isort" not in tool
     assert "black" in tool

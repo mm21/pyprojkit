@@ -33,13 +33,13 @@ def test_format_task(project: Path):
     assert [cmd[0] for cmd in cmds] == [
         "autoflake",
         "isort",
+        "docfmt",
         "black",
-        "docformatter",
         "toml-sort",
     ]
 
-    # docformatter tolerates rc 3
-    assert _py_action(task.actions[3]).args[1] == {0, 3}
+    # docfmt returns 0 when it writes changes in-place
+    assert _py_action(task.actions[2]).args[1] == {0}
 
     # existing dirs and root files aggregated
     autoflake_cmd = cmds[0]

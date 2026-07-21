@@ -276,12 +276,14 @@ wheels = [
 ]
 
 [[package]]
-name = "docformatter"
-version = "1.7.8"
-source = { git = "https://github.com/mm21/docformatter.git#09bb72e730a3d55fb9058cfb9b59f706dba7dca6" }
-dependencies = [
-    { name = "charset-normalizer" },
-]
+name = "docfmt"
+version = "0.1.0"
+source = { editable = "../docfmt" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pyprojkit", extras = ["all"], editable = "." }]
 
 [[package]]
 name = "doit"
@@ -730,7 +732,7 @@ dependencies = [
 all = [
     { name = "autoflake" },
     { name = "black" },
-    { name = "docformatter" },
+    { name = "docfmt" },
     { name = "genbadge", extra = ["coverage", "tests"] },
     { name = "isort" },
     { name = "mkinit" },
@@ -749,7 +751,7 @@ doc = [
 format = [
     { name = "autoflake" },
     { name = "black" },
-    { name = "docformatter" },
+    { name = "docfmt" },
     { name = "isort" },
 ]
 test = [
@@ -767,7 +769,7 @@ dev = [
 requires-dist = [
     { name = "autoflake", marker = "extra == 'format'", specifier = ">=2.3.1,<3" },
     { name = "black", marker = "extra == 'format'", specifier = ">=25.1.0,<26" },
-    { name = "docformatter", marker = "extra == 'format'", git = "https://github.com/mm21/docformatter.git" },
+    { name = "docfmt", marker = "extra == 'format'", editable = "../docfmt" },
     { name = "doit", specifier = ">=0.36.0,<0.37" },
     { name = "genbadge", extras = ["tests", "coverage"], marker = "extra == 'test'", specifier = ">=1.1.0,<2" },
     { name = "isort", marker = "extra == 'format'", specifier = ">=6.0.1,<7" },

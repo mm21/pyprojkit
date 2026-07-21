@@ -19,6 +19,7 @@ __all__ = [
     "AutoflakeConfig",
     "IsortConfig",
     "BlackConfig",
+    "DocfmtConfig",
     "DocformatterConfig",
     "TomlSortConfig",
     "PytestConfig",
@@ -75,7 +76,30 @@ class BlackConfig(BaseFormatterConfig):
 
 
 @dataclass(kw_only=True)
+class DocfmtConfig(BaseFormatterConfig):
+    table_path: ClassVar[str] = "tool.docfmt"
+
+    # docfmt returns 0 when it writes changes in-place; 1 means "would change"
+    # in check mode and 2 is an error, so only 0 is expected here
+    expect_rc: ClassVar[frozenset[int]] = frozenset({0})
+
+    # line length is left unset: docfmt picks it up from `[tool.black]`
+    in_place: bool | None = field(default=True, metadata={"toml": "in-place"})
+    recursive: bool | None = True
+    summary_on_own_line: bool | None = field(
+        default=True, metadata={"toml": "summary-on-own-line"}
+    )
+
+    def command(self, py_paths: list[str], toml_paths: list[str]) -> list[str]:
+        return ["docfmt"] + py_paths
+
+
+@dataclass(kw_only=True)
 class DocformatterConfig(BaseFormatterConfig):
+    """
+    Superseded by `DocfmtConfig`; retained for projects which have not migrated.
+    """
+
     table_path: ClassVar[str] = "tool.docformatter"
 
     # docformatter returns 3 when files were changed
