@@ -277,11 +277,11 @@ wheels = [
 
 [[package]]
 name = "docfmt"
-version = "0.1.0"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4b/7f/e8c68ccb844b62c0aced64e33544f4c6a98d371091b82df2b766091c9d59/docfmt-0.1.0.tar.gz", hash = "sha256:6877ada2317698f5f2f3c3738ba823820eeb804e2d873a0a40838688e950bfc0", size = 16000, upload-time = "2026-07-21T05:05:15.8Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/17/ef/d717f937eda3a7c66b83d7981bc2f40523007d62785357792fb2a8b715c9/docfmt-0.2.0.tar.gz", hash = "sha256:471be7cb7263e0e31e8c0816136404b220b7b473df1ca347618595e21bc13a7a", size = 16663, upload-time = "2026-07-26T06:02:32.102Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/80/b8/473c2a2d3848dc0c0cd74103cd949ca13870471b10ac562eb4b401921383/docfmt-0.1.0-py3-none-any.whl", hash = "sha256:aa0b085328e9208d80c559e7348ec06b581f04f2b528558bfff5b18bc56127f0", size = 20465, upload-time = "2026-07-21T05:05:14.427Z" },
+    { url = "https://files.pythonhosted.org/packages/50/92/fd996fedc177a74a5e9f865c7a340d9d455c1631cd850b3746035b8e6b57/docfmt-0.2.0-py3-none-any.whl", hash = "sha256:d6f0ecb524cbefdf273baef086f2a5f7f928116ed1f8373cd40d8e46c320e9f2", size = 21210, upload-time = "2026-07-26T06:02:30.91Z" },
 ]
 
 [[package]]
@@ -768,7 +768,7 @@ dev = [
 requires-dist = [
     { name = "autoflake", marker = "extra == 'format'", specifier = ">=2.3.1,<3" },
     { name = "black", marker = "extra == 'format'", specifier = ">=25.1.0,<26" },
-    { name = "docfmt", marker = "extra == 'format'", specifier = ">=0.1.0,<0.2.0" },
+    { name = "docfmt", marker = "extra == 'format'", specifier = ">=0.2.0,<0.3.0" },
     { name = "doit", specifier = ">=0.36.0,<0.37" },
     { name = "genbadge", extras = ["tests", "coverage"], marker = "extra == 'test'", specifier = ">=1.1.0,<2" },
     { name = "isort", marker = "extra == 'format'", specifier = ">=6.0.1,<7" },
