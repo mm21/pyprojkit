@@ -1,9 +1,9 @@
 """
 Profile registries: named factories for pre-canned configurations.
 
-A tools profile encompasses all tool categories; a formatting profile covers
-just the formatter chain. Third parties can register their own profiles and
-reuse them across projects:
+A tools profile encompasses all tool categories; a formatting profile covers just the
+formatter chain. Third parties can register their own profiles and reuse them across
+projects:
 
 ```python
 from pyprojkit import register_tools_profile

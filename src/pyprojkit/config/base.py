@@ -27,13 +27,13 @@ class ConfigError(Exception):
 @dataclass(kw_only=True)
 class BaseToolConfig(ABC):
     """
-    Configuration for a tool which reads its settings from a table in
-    `pyproject.toml`, e.g. `[tool.black]`.
+    Configuration for a tool which reads its settings from a table in `pyproject.toml`,
+    e.g. `[tool.black]`.
 
-    Dataclass fields map to table entries; a field whose name differs from its
-    TOML key declares the key via `field(metadata={"toml": "some-key"})`.
-    Fields set to `None` are omitted. Values derived from project-wide config
-    (e.g. black's `target-version`) are contributed by `extra_toml()`.
+    Dataclass fields map to table entries; a field whose name differs from its TOML key
+    declares the key via `field(metadata={"toml": "some-key"})`. Fields set to `None`
+    are omitted. Values derived from project-wide config (e.g. black's `target-version`)
+    are contributed by `extra_toml()`.
     """
 
     table_path: ClassVar[str]

@@ -11,10 +11,10 @@ Managed content:
 - `[tool.pyprojkit].managed`: bookkeeping list of owned tables, enabling safe
   removal of tables for tools dropped from the configuration
 
-Everything else (dependencies, build-system, urls, unmanaged tool tables,
-etc.) is preserved. Output is normalized with toml-sort (as a library, using
-the same settings as the managed `[tool.tomlsort]` table), so a subsequent
-`toml-sort` run in the format task is a no-op.
+Everything else (dependencies, build-system, urls, unmanaged tool tables, etc.) is
+preserved. Output is normalized with toml-sort (as a library, using the same settings as
+the managed `[tool.tomlsort]` table), so a subsequent `toml-sort` run in the format task
+is a no-op.
 """
 
 from __future__ import annotations
