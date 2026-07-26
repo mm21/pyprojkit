@@ -88,6 +88,7 @@ class DocfmtConfig(BaseFormatterConfig):
     summary_on_own_line: bool | None = field(
         default=True, metadata={"toml": "summary-on-own-line"}
     )
+    force_reflow: bool | None = field(default=True, metadata={"toml": "force-reflow"})
 
     def command(self, py_paths: list[str], toml_paths: list[str]) -> list[str]:
         return ["docfmt"] + py_paths
