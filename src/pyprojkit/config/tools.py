@@ -20,7 +20,6 @@ __all__ = [
     "IsortConfig",
     "BlackConfig",
     "DocfmtConfig",
-    "DocformatterConfig",
     "TomlSortConfig",
     "PytestConfig",
     "CoverageRunConfig",
@@ -92,32 +91,6 @@ class DocfmtConfig(BaseFormatterConfig):
 
     def command(self, py_paths: list[str], toml_paths: list[str]) -> list[str]:
         return ["docfmt"] + py_paths
-
-
-@dataclass(kw_only=True)
-class DocformatterConfig(BaseFormatterConfig):
-    """
-    Superseded by `DocfmtConfig`; retained for projects which have not migrated.
-    """
-
-    table_path: ClassVar[str] = "tool.docformatter"
-
-    # docformatter returns 3 when files were changed
-    expect_rc: ClassVar[frozenset[int]] = frozenset({0, 3})
-
-    black: bool | None = True
-    in_place: bool | None = field(default=True, metadata={"toml": "in-place"})
-    make_summary_multi_line: bool | None = field(
-        default=True, metadata={"toml": "make-summary-multi-line"}
-    )
-    non_strict: bool | None = field(default=True, metadata={"toml": "non-strict"})
-    pre_summary_newline: bool | None = field(
-        default=True, metadata={"toml": "pre-summary-newline"}
-    )
-    recursive: bool | None = True
-
-    def command(self, py_paths: list[str], toml_paths: list[str]) -> list[str]:
-        return ["docformatter"] + py_paths
 
 
 @dataclass(kw_only=True)

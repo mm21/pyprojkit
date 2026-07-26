@@ -5,7 +5,6 @@ from pyprojkit import (
     BlackConfig,
     ConfigError,
     DocfmtConfig,
-    DocformatterConfig,
     FormattingConfig,
     IsortConfig,
     ProjectConfig,
@@ -114,4 +113,3 @@ def test_formatter_commands():
     assert TomlSortConfig().command(py, toml) == ["toml-sort", "-i", "pyproject.toml"]
     assert DocfmtConfig().command(py, toml) == ["docfmt", "a.py", "src"]
     assert DocfmtConfig().expect_rc == {0}
-    assert DocformatterConfig().expect_rc == {0, 3}
