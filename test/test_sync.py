@@ -68,6 +68,37 @@ def test_managed_comments(project: Path, config: ProjectConfig):
             assert "managed by pyprojkit" not in line
 
 
+def test_classifier_comments_preserved(config: ProjectConfig):
+    text = """\
+[project]
+classifiers = [
+  # Get the list of trove classifiers here: https://pypi.org/classifiers/
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3.11",  # managed by pyprojkit
+  # about cpython
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Typing :: Typed"  # we ship py.typed
+]
+name = "fixture-pkg"
+version = "0.1.0"
+"""
+    new = render(config, text)
+
+    assert (
+        "  # Get the list of trove classifiers here: https://pypi.org/classifiers/\n"
+        '  "Development Status :: 3 - Alpha",' in new
+    )
+    assert (
+        "  # about cpython\n"
+        '  "Programming Language :: Python :: Implementation :: CPython",' in new
+    )
+    assert '"Typing :: Typed"  # we ship py.typed' in new
+
+    # dropped version classifier takes its managed marker with it
+    assert "3.11" not in new
+    assert render(config, new) == new
+
+
 def test_idempotent(project: Path, config: ProjectConfig):
     text = (project / "pyproject.toml").read_text()
     once = render(config, text)

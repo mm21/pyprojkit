@@ -5,7 +5,7 @@ Managed content:
 
 - `project.requires-python`
 - Python version classifiers (`Programming Language :: Python :: 3[.X]`);
-  other classifiers are left untouched
+  other classifiers are left untouched, as are comments in the list
 - One `[tool.X]` table per enabled tool (fully owned — any hand edits or
   comments inside are overwritten)
 - `[tool.pyprojkit].managed`: bookkeeping list of owned tables, enabling safe
@@ -22,11 +22,11 @@ from __future__ import annotations
 import difflib
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import tomlkit
 from tomlkit import TOMLDocument
-from tomlkit.items import Table
+from tomlkit.items import Null, Table
 
 from .config.base import ConfigError
 from .config.project import ProjectConfig
@@ -140,20 +140,72 @@ def _update_classifiers(project: Table, config: ProjectConfig):
     """
     Replace python version classifiers with those derived from config, preserving all
     others; result is sorted, with managed entries marked by an inline comment.
+
+    Comments in the existing list are preserved: an inline comment stays with its entry,
+    and a standalone comment stays with the entry it precedes (or is emitted at the end
+    of the list if it precedes none).
     """
-    existing = cast(list[str], [str(c) for c in project.get("classifiers", [])])
-    kept = [c for c in existing if not _CLASSIFIER_RE.match(c)]
     managed = set(config.python.classifiers)
+    existing = project.get("classifiers", [])
+    kept = [str(c) for c in existing if not _CLASSIFIER_RE.match(str(c))]
+    leading, inline, trailing = _collect_classifier_comments(
+        existing, set(kept) | managed
+    )
 
     array = tomlkit.array()
     for entry in sorted(set(kept) | managed):
+        for comment in leading.get(entry, []):
+            array.add_line(comment=comment, indent="  ")
         array.add_line(
             entry,
             indent="  ",
-            comment=_MANAGED_COMMENT if entry in managed else None,
+            comment=_MANAGED_COMMENT if entry in managed else inline.get(entry),
         )
+    for comment in trailing:
+        array.add_line(comment=comment, indent="  ")
     array.add_line(indent="")
     project["classifiers"] = array
+
+
+def _collect_classifier_comments(
+    array: Any, surviving: set[str]
+) -> tuple[dict[str, list[str]], dict[str, str], list[str]]:
+    """
+    Extract comments from an existing classifiers array, anchored to the entries they
+    accompany. Comments attached to entries which don't survive the sync are carried
+    forward to the next surviving entry.
+    """
+    leading: dict[str, list[str]] = {}
+    inline: dict[str, str] = {}
+    pending: list[str] = []
+
+    for group in getattr(array, "_value", []):
+        comment = _comment_text(group)
+        if group.value is None or isinstance(group.value, Null):
+            # standalone comment line
+            if comment:
+                pending.append(comment)
+            continue
+
+        entry = str(group.value)
+        if entry in surviving:
+            if pending:
+                leading.setdefault(entry, []).extend(pending)
+                pending = []
+            if comment and comment != _MANAGED_COMMENT:
+                inline[entry] = comment
+        elif comment and comment != _MANAGED_COMMENT:
+            # entry is going away; keep its comment as a standalone one
+            pending.append(comment)
+
+    return leading, inline, pending
+
+
+def _comment_text(group: Any) -> str | None:
+    comment = getattr(group, "comment", None)
+    if comment is None:
+        return None
+    return comment.trivia.comment.lstrip("#").strip() or None
 
 
 def _get_managed_list(doc: TOMLDocument) -> list[str]:
