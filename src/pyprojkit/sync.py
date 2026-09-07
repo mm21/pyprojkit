@@ -1,5 +1,6 @@
 """
-Sync engine: writes managed parts of `pyproject.toml` from a project's `pyprojconf.py`.
+Sync engine: writes managed parts of `pyproject.toml` (and managed Claude skills) from a
+project's `pyprojconf.py`.
 
 Managed content:
 
@@ -14,6 +15,8 @@ Managed content:
   that way is pruned. All other keys and comments in those tables belong to the
   project and are preserved. (The marker comment is reserved: don't put it on your
   own fields.)
+- Claude skill files under `.claude/skills/<name>/SKILL.md` for built-in skills,
+  overwritten on every sync and removed when dropped from the configuration
 
 Everything else (dependencies, build-system, urls, unmanaged fields and tables, etc.) is
 preserved. Output is normalized with toml-sort (as a library, using the same settings as
@@ -28,6 +31,7 @@ from __future__ import annotations
 
 import difflib
 import re
+from importlib import resources
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -52,6 +56,9 @@ _LEGACY_MARKER = "managed by pyprojkit"
 
 _HEADER_LINK = "https://github.com/mm21/pyprojkit"
 _HEADER_COMMENT = f"# managed (in part) by pyprojkit: {_HEADER_LINK}"
+
+_SKILLS_DIR = Path(".claude") / "skills"
+_BUILTIN_SKILLS = ("modern-python",)
 
 
 def compute_managed_fields(config: ProjectConfig) -> dict[str, dict[str, Any]]:
@@ -116,8 +123,8 @@ def sync(
     check: bool = False,
 ) -> bool:
     """
-    Sync `pyproject.toml` under the given project root (defaulting to the current
-    directory).
+    Sync `pyproject.toml` and managed Claude skills under the given project root
+    (defaulting to the current directory).
 
     In check mode, nothing is written; prints a diff and returns `False` if out of sync.
     In write mode, returns `True` (having updated files as needed).
@@ -138,6 +145,24 @@ def sync(
         else:
             path.write_text(new)
 
+    for skill_path, desired in _iter_skill_files(config, root_path):
+        current = skill_path.read_text() if skill_path.is_file() else None
+        if current == desired:
+            continue
+        rel = skill_path.relative_to(root_path)
+        if check:
+            if desired is None:
+                print(f"would remove {rel}")
+            else:
+                _print_diff(str(rel), current or "", desired)
+            in_sync = False
+        elif desired is None:
+            skill_path.unlink()
+            _prune_dirs(skill_path.parent, stop=root_path)
+        else:
+            skill_path.parent.mkdir(parents=True, exist_ok=True)
+            skill_path.write_text(desired)
+
     return in_sync if check else True
 
 
@@ -149,6 +174,43 @@ def _print_diff(name: str, old: str, new: str):
         tofile=f"{name} (synced)",
     )
     print("".join(diff), end="")
+
+
+def _iter_skill_files(
+    config: ProjectConfig, root: Path
+) -> Iterator[tuple[Path, str | None]]:
+    """
+    Yield `(path, desired_content)` for each managed skill file; `None` content means
+    the file should not exist.
+
+    Built-in skills dropped from the configuration (including via `claude=None`) are
+    pruned — the built-in skill namespace is pyprojkit-owned. Skills under other names
+    are never touched.
+    """
+    configured = config.tools.claude.skills if config.tools.claude else ()
+
+    for name in configured:
+        if name not in _BUILTIN_SKILLS:
+            raise ConfigError(f"unknown skill: '{name}'")
+        content = (
+            resources.files("pyprojkit") / "resources" / "skills" / name / "SKILL.md"
+        ).read_text()
+        yield root / _SKILLS_DIR / name / "SKILL.md", content
+
+    for name in _BUILTIN_SKILLS:
+        if name not in configured:
+            path = root / _SKILLS_DIR / name / "SKILL.md"
+            if path.is_file():
+                yield path, None
+
+
+def _prune_dirs(path: Path, stop: Path):
+    """
+    Remove `path` and its parents up to (excluding) `stop`, as long as they are empty.
+    """
+    while path != stop and path.is_dir() and not any(path.iterdir()):
+        path.rmdir()
+        path = path.parent
 
 
 def _ensure_header(text: str) -> str:

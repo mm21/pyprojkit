@@ -16,6 +16,7 @@ Development workflow toolkit for Python projects
     - [Tools and profiles](#tools-and-profiles)
   - [Syncing `pyproject.toml`](#syncing-pyprojecttoml)
     - [Managed content](#managed-content)
+    - [Claude Code skills](#claude-code-skills)
     - [Check mode](#check-mode)
   - [doit tasks](#doit-tasks)
   - [nox sessions](#nox-sessions)
@@ -123,6 +124,7 @@ Tool configurations are grouped by category under `ToolsConfig`, whose defaults 
 - `doc`: documentation tools — mkinit (enabled by default) and sphinx (opt-in)
 - `analysis`: mypy + pyright (opt-in)
 - `publish`: build/publish output directory
+- `claude`: Claude Code skills (enabled by default)
 
 Customize with `dataclasses.replace`:
 
@@ -179,6 +181,16 @@ Everything else — dependencies, `[tool.uv.sources]`, build system, unmanaged f
 
 Files synced by PyProjKit < 0.4 (whole-table ownership with a `[tool.pyprojkit]` bookkeeping table) are migrated automatically in a single sync.
 
+### Claude Code skills
+
+PyProjKit ships built-in [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills), synced to `.claude/skills/<name>/SKILL.md`. By default the `modern-python` skill is enabled:
+
+```python
+tools=replace(ToolsConfig.default(), claude=ClaudeConfig(skills=("modern-python",)))
+```
+
+Managed skill files are overwritten on every sync (so they refresh when PyProjKit is updated) and removed when dropped from the configuration; disable entirely with `claude=None`. Skills under other names in `.claude/skills/` are never touched.
+
 ### Check mode
 
 Verify a project is in sync without writing (e.g. in CI):
@@ -187,7 +199,7 @@ Verify a project is in sync without writing (e.g. in CI):
 pyprojkit sync --check
 ```
 
-Prints a diff and exits nonzero if `pyproject.toml` is out of date.
+Prints a diff and exits nonzero if `pyproject.toml` or any managed skill file is out of date.
 
 ## doit tasks
 

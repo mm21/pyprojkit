@@ -39,6 +39,7 @@ from .project import (
     SphinxConfig,
     AnalysisConfig,
     PublishConfig,
+    ClaudeConfig,
 )
 from .profiles import (
     get_formatting_profile,
@@ -71,6 +72,7 @@ __all__ = [
     "SphinxConfig",
     "AnalysisConfig",
     "PublishConfig",
+    "ClaudeConfig",
     "get_formatting_profile",
     "get_tools_profile",
     "register_formatting_profile",

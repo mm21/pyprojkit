@@ -30,6 +30,7 @@ __all__ = [
     "SphinxConfig",
     "AnalysisConfig",
     "PublishConfig",
+    "ClaudeConfig",
 ]
 
 
@@ -142,6 +143,19 @@ class PublishConfig:
 
 
 @dataclass(kw_only=True)
+class ClaudeConfig:
+    """
+    Claude Code integration: managed skills written to `.claude/skills/`.
+    """
+
+    skills: tuple[str, ...] = ("modern-python",)
+    """
+    Built-in skills to sync into the project; each is written to
+    `.claude/skills/<name>/SKILL.md` and overwritten on every sync.
+    """
+
+
+@dataclass(kw_only=True)
 class ToolsConfig:
     """
     Development tool configurations, grouped by broad tool category.
@@ -158,6 +172,11 @@ class ToolsConfig:
     doc: DocConfig = field(default_factory=DocConfig)
     analysis: AnalysisConfig | None = None
     publish: PublishConfig = field(default_factory=PublishConfig)
+    claude: ClaudeConfig | None = field(default_factory=ClaudeConfig)
+    """
+    Claude Code integration; enabled by default. Set to `None` to disable (managed skill
+    files are then removed on the next sync).
+    """
 
     @classmethod
     def default(cls) -> ToolsConfig:

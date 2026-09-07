@@ -9,12 +9,15 @@ import pytest
 import tomlkit
 from tomlkit.items import Array, Table
 
-from pyprojkit import FormattingConfig, ProjectConfig, sync
+from pyprojkit import ConfigError, FormattingConfig, ProjectConfig, sync
 from pyprojkit.cli import main
+from pyprojkit.config.project import ClaudeConfig
 from pyprojkit.config.tools import BlackConfig, TomlSortConfig
 from pyprojkit.sync import render
 
 HEADER = "# managed (in part) by pyprojkit: https://github.com/mm21/pyprojkit"
+
+SKILL_PATH = Path(".claude") / "skills" / "modern-python" / "SKILL.md"
 
 
 def test_render_managed_content(project: Path, config: ProjectConfig):
@@ -273,6 +276,54 @@ def test_purge_keeps_user_fields(project: Path, config: ProjectConfig):
     assert "addopts" not in pytest_table
     # empty foreign table is never pruned
     assert "coverage" not in _get_table(doc, "tool")
+
+
+def test_skills_sync(project: Path, config: ProjectConfig):
+    sync(config, project)
+    skill = project / SKILL_PATH
+    assert skill.is_file()
+    content = skill.read_text()
+
+    # hand edits are overwritten
+    skill.write_text("edited")
+    assert sync(config, project) is True
+    assert skill.read_text() == content
+
+    # drift is reported in check mode
+    skill.unlink()
+    with _quiet():
+        assert sync(config, project, check=True) is False
+    sync(config, project)
+    assert skill.is_file()
+
+    # disabling claude prunes the managed skill (and emptied directories)
+    no_claude = replace(config, tools=replace(config.tools, claude=None))
+    sync(no_claude, project)
+    assert not skill.exists()
+    assert not (project / ".claude").exists()
+
+
+def test_skills_unknown_name(project: Path, config: ProjectConfig):
+    bad = replace(
+        config, tools=replace(config.tools, claude=ClaudeConfig(skills=("nope",)))
+    )
+    with pytest.raises(ConfigError):
+        sync(bad, project)
+
+
+def test_check_reports_all_drift(project: Path, config: ProjectConfig):
+    sync(config, project)
+
+    # introduce drift in both pyproject.toml and a skill file
+    path = project / "pyproject.toml"
+    path.write_text(path.read_text().replace('testpaths = "test"', 'testpaths = "t"'))
+    (project / SKILL_PATH).unlink()
+
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        assert sync(config, project, check=True) is False
+    assert "pyproject.toml" in out.getvalue()
+    assert "SKILL.md" in out.getvalue()
 
 
 def test_cli(project: Path):
