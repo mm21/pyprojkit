@@ -28,7 +28,7 @@ Every Python project accumulates the same development workflow boilerplate: form
 
 PyProjKit centralizes all of this. Each project declares its configuration exactly once in a `pyprojconf.py` at the project root; PyProjKit then:
 
-1. **Syncs `pyproject.toml`**: writes the managed parts (version classifiers, `requires-python`, `[tool.*]` tables) while preserving everything else, with a `--check` mode for CI.
+1. **Syncs `pyproject.toml`**: writes the managed parts (version classifiers, `requires-python`, individual `[tool.*]` fields marked with `# pyprojkit-managed` comments) while preserving everything else, with a `--check` mode for CI.
 2. **Provides `doit` task factories**: format, test, badges, publish, and more, pre-wired to sensible conventions.
 3. **Provides `nox` session factories**: a test session across all supported Python versions, pinned to exact patch releases.
 
@@ -149,14 +149,16 @@ config = ProjectConfig(
 )
 ```
 
-For one-off tweaks to managed tables there's an escape hatch, merged last into the synced output:
+To tweak a managed value, replace it in the tool's config:
 
 ```python
 tools=replace(
     ToolsConfig.default(),
-    tool_overrides={"tool.pytest.ini_options": {"addopts": "-x"}},
+    test=TestConfig(pytest=PytestConfig(addopts="-x")),
 )
 ```
+
+Anything PyProjKit doesn't manage — extra keys in managed tables, whole unmanaged tables — is simply edited directly in `pyproject.toml` and left untouched by the sync.
 
 ## Syncing `pyproject.toml`
 
@@ -166,12 +168,16 @@ Formatters and other tools read their settings from `pyproject.toml`, so PyProjK
 
 The sync engine owns:
 
+- A header comment at the top of `pyproject.toml` noting the file is managed (in part) by PyProjKit
 - `project.requires-python`
 - Python version classifiers (other classifiers are untouched)
-- One `[tool.X]` table per enabled tool (fully owned; hand edits inside are overwritten)
-- `[tool.pyprojkit].managed`: bookkeeping list of owned tables, so a tool dropped from your configuration gets its table cleanly removed on the next sync
+- Individual key/value pairs within tool tables, each marked with an inline `# pyprojkit-managed` comment
 
-Everything else — dependencies, `[tool.uv.sources]`, build system, unmanaged tool tables — is preserved. Output is normalized with toml-sort using the same settings as the managed `[tool.tomlsort]` table, so syncing and formatting never fight.
+The marker comment doubles as bookkeeping: a marked field dropped from your configuration is deleted on the next sync, and a table emptied that way is pruned. (The marker is reserved — don't put it on your own fields.)
+
+Everything else — dependencies, `[tool.uv.sources]`, build system, unmanaged fields inside managed tables, whole unmanaged tables, comments — is preserved. Output is normalized with toml-sort using the same settings as the managed `[tool.tomlsort]` table, so syncing and formatting never fight.
+
+Files synced by PyProjKit < 0.4 (whole-table ownership with a `[tool.pyprojkit]` bookkeeping table) are migrated automatically in a single sync.
 
 ### Check mode
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
 from .. import _paths
 from ..versions import PythonVersions
@@ -158,14 +158,6 @@ class ToolsConfig:
     doc: DocConfig = field(default_factory=DocConfig)
     analysis: AnalysisConfig | None = None
     publish: PublishConfig = field(default_factory=PublishConfig)
-
-    tool_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
-    """
-    Escape hatch: extra entries merged last into managed tables, keyed by table path,
-    e.g. `{"tool.pytest.ini_options": {"addopts": "..."}}`.
-
-    A key not otherwise managed creates a new managed table.
-    """
 
     @classmethod
     def default(cls) -> ToolsConfig:

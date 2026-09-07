@@ -16,10 +16,6 @@ __submodules__ = [
 
 # isort: off
 # <AUTOGEN_INIT>
-from .versions import (
-    DEFAULT_PATCH_VERSIONS,
-    PythonVersions,
-)
 from .config import (
     ConfigError,
     BaseToolConfig,
@@ -49,11 +45,15 @@ from .config import (
     register_formatting_profile,
     register_tools_profile,
 )
+from .versions import (
+    DEFAULT_PATCH_VERSIONS,
+    PythonVersions,
+)
 from .discovery import (
     load_config,
 )
 from .sync import (
-    compute_managed_tables,
+    compute_managed_fields,
     render,
     sync,
 )
@@ -66,8 +66,6 @@ from .sessions import (
 
 __all__ = [
     "sync",
-    "DEFAULT_PATCH_VERSIONS",
-    "PythonVersions",
     "ConfigError",
     "BaseToolConfig",
     "BaseFormatterConfig",
@@ -95,8 +93,10 @@ __all__ = [
     "get_tools_profile",
     "register_formatting_profile",
     "register_tools_profile",
+    "DEFAULT_PATCH_VERSIONS",
+    "PythonVersions",
     "load_config",
-    "compute_managed_tables",
+    "compute_managed_fields",
     "render",
     "TaskFactory",
     "NoxFactory",
