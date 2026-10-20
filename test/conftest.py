@@ -1,8 +1,14 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-from pyprojkit import ProjectConfig, PythonVersions, RequiresPython
+from pyprojkit import (
+    ProjectConfig,
+    PythonVersions,
+    RequiresPython,
+    create_kitchen_sink_tools,
+)
 
 PYPROJECT = """\
 [project]
@@ -29,9 +35,11 @@ keep = true
 """
 
 PYPROJCONF = """\
-from pyprojkit import ProjectConfig, PythonVersions, RequiresPython
+from dataclasses import replace
 
-config = ProjectConfig(package="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)))
+from pyprojkit import ProjectConfig, PythonVersions, RequiresPython, create_kitchen_sink_tools
+
+config = ProjectConfig(package="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)), tools=replace(create_kitchen_sink_tools(), analysis=None))
 """
 
 
@@ -41,6 +49,7 @@ def config() -> ProjectConfig:
         package="fixture_pkg",
         requires_python=RequiresPython((3, 12)),
         pinned_python=PythonVersions(3, (12, 13)),
+        tools=replace(create_kitchen_sink_tools(), analysis=None),
     )
 
 

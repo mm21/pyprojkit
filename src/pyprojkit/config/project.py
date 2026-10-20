@@ -45,15 +45,6 @@ class FormattingConfig:
     Formatters in run order.
     """
 
-    @classmethod
-    def default(cls) -> FormattingConfig:
-        """
-        Get the default formatting profile.
-        """
-        from .profiles import get_formatting_profile
-
-        return get_formatting_profile("default")
-
 
 @dataclass(kw_only=True)
 class TestConfig:
@@ -160,32 +151,24 @@ class ToolsConfig:
     """
     Development tool configurations, grouped by broad tool category.
 
-    A "tools profile" is simply a pre-canned `ToolsConfig` factory; see
-    `pyprojkit.config.profiles`. The default instance corresponds to the default
-    profile.
+    Every category is opt-in: `None` (the default) means the tool is neither managed nor
+    given a task. For a pre-canned set of everything, see `create_kitchen_sink_tools()`;
+    to share a configuration across projects, define your own factory function or
+    global.
     """
 
-    formatting: FormattingConfig = field(default_factory=FormattingConfig.default)
-    test: TestConfig | None = field(default_factory=TestConfig)
-    doit: DoitConfig = field(default_factory=DoitConfig)
-    nox: NoxConfig = field(default_factory=NoxConfig)
-    doc: DocConfig = field(default_factory=DocConfig)
+    formatting: FormattingConfig | None = None
+    test: TestConfig | None = None
+    doit: DoitConfig | None = None
+    nox: NoxConfig | None = None
+    doc: DocConfig | None = None
     analysis: AnalysisConfig | None = None
-    publish: PublishConfig = field(default_factory=PublishConfig)
-    claude: ClaudeConfig | None = field(default_factory=ClaudeConfig)
+    publish: PublishConfig | None = None
+    claude: ClaudeConfig | None = None
     """
-    Claude Code integration; enabled by default. Set to `None` to disable (managed skill
-    files are then removed on the next sync).
+    Claude Code integration. When `None`, managed skill files are removed on the next
+    sync.
     """
-
-    @classmethod
-    def default(cls) -> ToolsConfig:
-        """
-        Get the default tools profile.
-        """
-        from .profiles import get_tools_profile
-
-        return get_tools_profile("default")
 
 
 @dataclass(kw_only=True)
@@ -227,7 +210,7 @@ class ProjectConfig:
     at the project root.
     """
 
-    tools: ToolsConfig = field(default_factory=ToolsConfig.default)
+    tools: ToolsConfig = field(default_factory=ToolsConfig)
     """
     Tool configurations.
     """

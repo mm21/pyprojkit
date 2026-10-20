@@ -13,7 +13,7 @@ Development workflow toolkit for Python projects
   - [Getting started](#getting-started)
   - [Declaring configuration: `pyprojconf.py`](#declaring-configuration-pyprojconfpy)
     - [Python versions](#python-versions)
-    - [Tools and profiles](#tools-and-profiles)
+    - [Tools](#tools)
   - [Syncing `pyproject.toml`](#syncing-pyprojecttoml)
     - [Managed content](#managed-content)
     - [Claude Code skills](#claude-code-skills)
@@ -21,7 +21,7 @@ Development workflow toolkit for Python projects
   - [doit tasks](#doit-tasks)
   - [nox sessions](#nox-sessions)
   - [Path conventions](#path-conventions)
-  - [Custom profiles](#custom-profiles)
+  - [Sharing configuration](#sharing-configuration)
 
 ## Motivation
 
@@ -125,19 +125,19 @@ The exact patch releases used for nox come from a mapping bundled with PyProjKit
 pinned_python = PythonVersions(3, (12, 14), patch_overrides={(3, 14): "3.14.7"})
 ```
 
-### Tools and profiles
+### Tools
 
-Tool configurations are grouped by category under `ToolsConfig`, whose defaults constitute the default *profile*:
+Tool configurations are grouped by category under `ToolsConfig`. Every category defaults to `None`, so the default configuration is minimal: no tools are managed and only the `sync` task exists. Set a category to enable it:
 
-- `formatting`: ordered chain of formatters; by default autoflake &rarr; isort &rarr; docfmt &rarr; black &rarr; toml-sort
+- `formatting`: ordered chain of formatters, e.g. autoflake &rarr; isort &rarr; docfmt &rarr; black &rarr; toml-sort
 - `test`: pytest + coverage settings
 - `doit`, `nox`: cache locations and backends
-- `doc`: documentation tools — mkinit (enabled by default) and sphinx (opt-in)
-- `analysis`: mypy + pyright (opt-in)
+- `doc`: documentation tools — mkinit and sphinx (each opt-in within)
+- `analysis`: mypy + pyright
 - `publish`: build/publish output directory
-- `claude`: Claude Code skills (enabled by default)
+- `claude`: Claude Code skills
 
-Customize with `dataclasses.replace`:
+`create_kitchen_sink_tools()` returns a `ToolsConfig` with everything enabled (except sphinx, which needs project-specific settings). Customize it with `dataclasses.replace`:
 
 ```python
 from dataclasses import replace
@@ -147,8 +147,9 @@ from pyprojkit import (
     DocConfig,
     ProjectConfig,
     PythonVersions,
+    RequiresPython,
     SphinxConfig,
-    ToolsConfig,
+    create_kitchen_sink_tools,
 )
 
 config = ProjectConfig(
@@ -156,9 +157,9 @@ config = ProjectConfig(
     requires_python=RequiresPython((3, 12)),
     pinned_python=PythonVersions(3, (12, 14)),
     tools=replace(
-        ToolsConfig.default(),
+        create_kitchen_sink_tools(),
         doc=DocConfig(sphinx=SphinxConfig(copy_env_var="MY_PACKAGE_DOCS_DIR")),
-        analysis=AnalysisConfig(),
+        analysis=None,
     ),
 )
 ```
@@ -167,7 +168,7 @@ To tweak a managed value, replace it in the tool's config:
 
 ```python
 tools=replace(
-    ToolsConfig.default(),
+    create_kitchen_sink_tools(),
     test=TestConfig(pytest=PytestConfig(addopts="-x")),
 )
 ```
@@ -195,10 +196,10 @@ Files synced by PyProjKit < 0.4 (whole-table ownership with a `[tool.pyprojkit]`
 
 ### Claude Code skills
 
-PyProjKit ships built-in [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills), synced to `.claude/skills/<name>/SKILL.md`. By default the `modern-python` skill is enabled:
+PyProjKit ships built-in [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills), synced to `.claude/skills/<name>/SKILL.md`. Enable the `modern-python` skill (included in `create_kitchen_sink_tools()`):
 
 ```python
-tools=replace(ToolsConfig.default(), claude=ClaudeConfig(skills=("modern-python",)))
+tools=replace(ToolsConfig(), claude=ClaudeConfig(skills=("modern-python",)))
 ```
 
 Managed skill files are overwritten on every sync (so they refresh when PyProjKit is updated) and removed when dropped from the configuration; disable entirely with `claude=None`. Skills under other names in `.claude/skills/` are never touched.
@@ -238,7 +239,7 @@ or all at once: `globals().update(factory.create_all_tasks())`, which creates ev
 | `test` | Run pytest with coverage (HTML + XML) and JUnit output |
 | `badges` | Generate test/coverage badges via genbadge |
 | `publish` | Build and publish via uv (output dir is cleaned first, so stale artifacts are never published) |
-| `init` | Generate `__init__.py` files via mkinit (enabled by default) |
+| `init` | Generate `__init__.py` files via mkinit |
 | `doc` | Build documentation via sphinx; `--copy` deploys to a directory given by an env var (opt-in) |
 | `analysis` | Run mypy (with HTML/cobertura reports) and pyright (opt-in) |
 
@@ -266,33 +267,32 @@ All tasks share the same layout:
 - `badges/`: generated badge SVGs
 - `src/<package>`: package sources consumed by the `init` and `analysis` tasks; the containing directory is configurable via `ProjectConfig.packages_dir` (default `"src"`)
 
-## Custom profiles
+## Sharing configuration
 
-A profile is a named factory for a pre-canned configuration, at two levels: the overall tools profile and the formatting profile it contains. The `"default"` profiles ship with PyProjKit; register your own once and reuse it across projects:
+There is no profile registry: a shared configuration is just a function or global in a module you control, which each project imports.
 
 ```python
-# in your shared module, e.g. mycompany_profiles.py
+# in your shared module, e.g. mycompany_config.py
 from dataclasses import replace
 
-from pyprojkit import AnalysisConfig, ToolsConfig, register_tools_profile
+from pyprojkit import AnalysisConfig, ToolsConfig, create_kitchen_sink_tools
 
-register_tools_profile(
-    "mycompany",
-    lambda: replace(ToolsConfig.default(), analysis=AnalysisConfig()),
-)
+
+def create_mycompany_tools() -> ToolsConfig:
+    return replace(create_kitchen_sink_tools(), analysis=AnalysisConfig())
 ```
 
 ```python
 # in each project's pyprojconf.py
-import mycompany_profiles  # noqa: F401 -- registers the profile
+from mycompany_config import create_mycompany_tools
 
-from pyprojkit import ProjectConfig, PythonVersions, RequiresPython, get_tools_profile
+from pyprojkit import ProjectConfig, PythonVersions, RequiresPython
 
 config = ProjectConfig(
     package="my_package",
     requires_python=RequiresPython((3, 12)),
     pinned_python=PythonVersions(3, (12, 14)),
-    tools=get_tools_profile("mycompany"),
+    tools=create_mycompany_tools(),
 )
 ```
 

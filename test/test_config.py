@@ -1,11 +1,11 @@
+from dataclasses import fields, replace
+
 import pytest
 
 from pyprojkit import (
     AutoflakeConfig,
     BlackConfig,
-    ConfigError,
     DocfmtConfig,
-    FormattingConfig,
     IsortConfig,
     ProjectConfig,
     PythonVersions,
@@ -13,8 +13,7 @@ from pyprojkit import (
     RequiresPython,
     TomlSortConfig,
     ToolsConfig,
-    get_tools_profile,
-    register_tools_profile,
+    create_kitchen_sink_tools,
 )
 
 
@@ -38,8 +37,14 @@ def test_pins_override_and_missing():
         PythonVersionSet((PythonVersions(3, (10, 10)),)).patch((3, 10))
 
 
-def test_default_profile():
-    tools = ToolsConfig.default()
+def test_default_minimal():
+    tools = ToolsConfig()
+    assert all(getattr(tools, f.name) is None for f in fields(tools))
+
+
+def test_kitchen_sink():
+    tools = create_kitchen_sink_tools()
+    assert tools.formatting is not None
     names = [type(f).__name__ for f in tools.formatting.formatters]
     assert names == [
         "AutoflakeConfig",
@@ -48,24 +53,17 @@ def test_default_profile():
         "BlackConfig",
         "TomlSortConfig",
     ]
-    assert tools.test is not None
-    assert tools.doc.mkinit is not None  # enabled by default
+    assert tools.doc is not None and tools.doc.mkinit is not None
     assert tools.doc.sphinx is None
-    assert tools.analysis is None
-
-
-def test_unknown_profile():
-    with pytest.raises(ConfigError, match="Unknown tools profile"):
-        get_tools_profile("nonexistent")
-
-
-def test_register_profile():
-    register_tools_profile(
-        "custom",
-        lambda: ToolsConfig(formatting=FormattingConfig(formatters=(BlackConfig(),))),
+    assert all(
+        getattr(tools, f.name) is not None for f in fields(tools) if f.name != "doc"
     )
-    tools = get_tools_profile("custom")
-    assert len(tools.formatting.formatters) == 1
+
+
+def test_custom_profile():
+    tools = replace(create_kitchen_sink_tools(), analysis=None)
+    assert tools.analysis is None
+    assert tools.test is not None
 
 
 def test_to_toml_key_mapping(config: ProjectConfig):

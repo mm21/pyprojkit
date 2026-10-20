@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 from doit.action import PythonAction
 
-from pyprojkit import AnalysisConfig, ConfigError, ProjectConfig, TaskFactory
+from pyprojkit import (
+    AnalysisConfig,
+    ConfigError,
+    ProjectConfig,
+    TaskFactory,
+    ToolsConfig,
+)
 
 
 def test_create_all_tasks(project: Path):
@@ -21,6 +27,13 @@ def test_create_all_tasks(project: Path):
         "task_badges",
         "task_init",
     }
+
+
+def test_minimal_tasks(project: Path, config: ProjectConfig):
+    minimal = replace(config, tools=ToolsConfig())
+    assert set(TaskFactory(config=minimal).create_all_tasks()) == {"task_sync"}
+    with pytest.raises(ConfigError, match="tools.formatting"):
+        TaskFactory(config=minimal).create_format_task()
 
 
 def test_format_task(project: Path):

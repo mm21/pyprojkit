@@ -42,10 +42,7 @@ from .project import (
     ClaudeConfig,
 )
 from .profiles import (
-    get_formatting_profile,
-    get_tools_profile,
-    register_formatting_profile,
-    register_tools_profile,
+    create_kitchen_sink_tools,
 )
 
 __all__ = [
@@ -73,9 +70,6 @@ __all__ = [
     "AnalysisConfig",
     "PublishConfig",
     "ClaudeConfig",
-    "get_formatting_profile",
-    "get_tools_profile",
-    "register_formatting_profile",
-    "register_tools_profile",
+    "create_kitchen_sink_tools",
 ]
 # </AUTOGEN_INIT>

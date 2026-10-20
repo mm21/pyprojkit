@@ -45,7 +45,8 @@ class NoxFactory:
     ):
         self._config = config or load_config(root)
         self._registered = set()
-        nox.options.envdir = self._config.tools.nox.envdir
+        if nox_config := self._config.tools.nox:
+            nox.options.envdir = nox_config.envdir
 
     def create_test_session(self, *, group: str = "dev") -> Callable[[Session], None]:
         """

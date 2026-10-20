@@ -98,6 +98,7 @@ class TaskFactory:
         Create `format` task which runs the configured formatters.
         """
         config, root = self._config, self._root
+        formatting = self._require(config.tools.formatting, "tools.formatting")
 
         def task_format() -> Task:
             # aggregate files to format
@@ -111,7 +112,7 @@ class TaskFactory:
                     run,
                     (formatter.command(py_paths, toml_paths), set(formatter.expect_rc)),
                 )
-                for formatter in config.tools.formatting.formatters
+                for formatter in formatting.formatters
             ]
 
             return Task(
@@ -208,7 +209,8 @@ class TaskFactory:
         """
         Create `publish` task which builds and publishes the package via uv.
         """
-        out_dir = Path(self._config.tools.publish.out_dir)
+        publish = self._require(self._config.tools.publish, "tools.publish")
+        out_dir = Path(publish.out_dir)
 
         def _publish():
             artifacts = [str(p) for p in sorted(out_dir.iterdir())]
@@ -235,7 +237,9 @@ class TaskFactory:
         """
         Create `init` task which generates `__init__.py` files using mkinit.
         """
-        mkinit = self._require(self._config.tools.doc.mkinit, "tools.doc.mkinit")
+        mkinit = self._require(
+            self._config.tools.doc and self._config.tools.doc.mkinit, "tools.doc.mkinit"
+        )
         package_path = self._config.package_path
 
         def task_init() -> Task:
@@ -255,7 +259,9 @@ class TaskFactory:
         """
         Create `doc` task which builds documentation using sphinx.
         """
-        sphinx = self._require(self._config.tools.doc.sphinx, "tools.doc.sphinx")
+        sphinx = self._require(
+            self._config.tools.doc and self._config.tools.doc.sphinx, "tools.doc.sphinx"
+        )
 
         def _do_copy(copy: bool):
             if not copy:
@@ -368,18 +374,22 @@ class TaskFactory:
 
         creators: dict[str, TaskCreator] = {
             "task_sync": self.create_sync_task(),
-            "task_format": self.create_format_task(),
-            "task_publish": self.create_publish_task(),
         }
+
+        if tools.formatting:
+            creators["task_format"] = self.create_format_task()
+
+        if tools.publish:
+            creators["task_publish"] = self.create_publish_task()
 
         if tools.test:
             creators["task_test"] = self.create_test_task()
             creators["task_badges"] = self.create_badges_task()
 
-        if tools.doc.mkinit:
+        if tools.doc and tools.doc.mkinit:
             creators["task_init"] = self.create_init_task()
 
-        if tools.doc.sphinx:
+        if tools.doc and tools.doc.sphinx:
             creators["task_doc"] = self.create_doc_task()
 
         if tools.analysis:

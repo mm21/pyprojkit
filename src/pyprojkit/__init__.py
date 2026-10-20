@@ -41,10 +41,7 @@ from .config import (
     AnalysisConfig,
     PublishConfig,
     ClaudeConfig,
-    get_formatting_profile,
-    get_tools_profile,
-    register_formatting_profile,
-    register_tools_profile,
+    create_kitchen_sink_tools,
 )
 from .versions import (
     DEFAULT_PATCH_VERSIONS,
@@ -93,10 +90,7 @@ __all__ = [
     "AnalysisConfig",
     "PublishConfig",
     "ClaudeConfig",
-    "get_formatting_profile",
-    "get_tools_profile",
-    "register_formatting_profile",
-    "register_tools_profile",
+    "create_kitchen_sink_tools",
     "DEFAULT_PATCH_VERSIONS",
     "PythonVersions",
     "PythonVersionSet",

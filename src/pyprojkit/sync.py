@@ -69,15 +69,17 @@ def compute_managed_fields(config: ProjectConfig) -> dict[str, dict[str, Any]]:
     tables: dict[str, dict[str, Any]] = {}
     tools = config.tools
 
-    for formatter in tools.formatting.formatters:
-        tables[formatter.table_path] = formatter.to_toml(config)
+    if tools.formatting:
+        for formatter in tools.formatting.formatters:
+            tables[formatter.table_path] = formatter.to_toml(config)
 
     if test := tools.test:
         for tool in (test.pytest, test.coverage_run, test.coverage_report):
             tables[tool.table_path] = tool.to_toml(config)
 
-    tables[tools.doit.table_path] = tools.doit.to_toml(config)
-    tables[tools.nox.table_path] = tools.nox.to_toml(config)
+    for tool in (tools.doit, tools.nox):
+        if tool:
+            tables[tool.table_path] = tool.to_toml(config)
 
     if (analysis := tools.analysis) and analysis.mypy:
         tables[analysis.mypy.table_path] = analysis.mypy.to_toml(config)
@@ -446,7 +448,9 @@ def _normalize(config: ProjectConfig, text: str) -> str:
     tomlsort_config = next(
         (
             f
-            for f in config.tools.formatting.formatters
+            for f in (
+                config.tools.formatting.formatters if config.tools.formatting else ()
+            )
             if isinstance(f, TomlSortConfig)
         ),
         None,
