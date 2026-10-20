@@ -28,7 +28,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "pyprojkit"
 readme = "README.md"
-requires-python = ">=3.12,<3.15"  # pyprojkit-managed
+requires-python = ">=3.12,<4.0"  # pyprojkit-managed
 version = "0.3.1"
 
 [project.optional-dependencies]
