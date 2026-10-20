@@ -68,7 +68,10 @@ class BlackConfig(BaseFormatterConfig):
     quiet: bool | None = True
 
     def extra_toml(self, project: ProjectConfig) -> dict[str, Any]:
-        return {"target-version": project.python.black_targets}
+        versions = project.pinned_versions
+        if versions is None:
+            return {}
+        return {"target-version": [f"py{maj}{min}" for maj, min in versions.versions]}
 
     def command(self, py_paths: list[str], toml_paths: list[str]) -> list[str]:
         return ["black"] + py_paths
@@ -165,4 +168,8 @@ class MypyConfig(BaseToolConfig):
     ignore_missing_imports: bool | None = True
 
     def extra_toml(self, project: ProjectConfig) -> dict[str, Any]:
-        return {"python_version": project.python.mypy_version}
+        versions = project.pinned_versions
+        if versions is None:
+            return {}
+        maj, min = versions.versions[0]
+        return {"python_version": f"{maj}.{min}"}

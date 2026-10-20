@@ -9,6 +9,8 @@ from pyprojkit import (
     IsortConfig,
     ProjectConfig,
     PythonVersions,
+    PythonVersionSet,
+    RequiresPython,
     TomlSortConfig,
     ToolsConfig,
     get_tools_profile,
@@ -17,26 +19,10 @@ from pyprojkit import (
 
 
 def test_python_versions():
-    python = PythonVersions(3, (12, 14))
+    versions = PythonVersionSet.from_config(PythonVersions(3, (12, 14)))
 
-    assert python.versions == [(3, 12), (3, 13), (3, 14)]
-    assert python.requires_python == ">=3.12,<3.15"
-    assert python.classifiers == [
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Programming Language :: Python :: 3.14",
-    ]
-    assert python.black_targets == ["py312", "py313", "py314"]
-    assert python.mypy_version == "3.12"
-    assert python.pins[0].startswith("3.12.")
-    assert len(python.pins) == 3
-
-
-def test_python_versions_single():
-    python = PythonVersions(3, (13, 13))
-    assert python.versions == [(3, 13)]
-    assert python.requires_python == ">=3.13,<3.14"
+    assert versions.versions == [(3, 12), (3, 13), (3, 14)]
+    assert versions.patch((3, 12)).startswith("3.12.")
 
 
 def test_python_versions_invalid():
@@ -46,10 +32,10 @@ def test_python_versions_invalid():
 
 def test_pins_override_and_missing():
     python = PythonVersions(3, (12, 12), patch_overrides={(3, 12): "3.12.99"})
-    assert python.pins == ["3.12.99"]
+    assert PythonVersionSet((python,)).patch((3, 12)) == "3.12.99"
 
     with pytest.raises(ValueError, match="No known patch release"):
-        _ = PythonVersions(3, (10, 10)).pins
+        PythonVersionSet((PythonVersions(3, (10, 10)),)).patch((3, 10))
 
 
 def test_default_profile():
@@ -113,3 +99,41 @@ def test_formatter_commands():
     assert TomlSortConfig().command(py, toml) == ["toml-sort", "-i", "pyproject.toml"]
     assert DocfmtConfig().command(py, toml) == ["docfmt", "a.py", "src"]
     assert DocfmtConfig().expect_rc == {0}
+
+
+def test_requires_python():
+    assert RequiresPython((3, 12)).specifier == ">=3.12,<4.0"
+    assert RequiresPython((3, 12), (3, 15)).specifier == ">=3.12,<3.15"
+    assert RequiresPython((3, 12)).contains((3, 99))
+
+    excluded = RequiresPython((3, 12), exclude=[(3, 14), (3, 13)])
+    assert excluded.specifier == ">=3.12,<4.0,!=3.13.*,!=3.14.*"
+    assert not excluded.contains((3, 13))
+    with pytest.raises(ValueError):
+        RequiresPython((3, 12), (3, 12))
+
+
+def test_pinned_versions_outside_requires_python():
+    with pytest.raises(ValueError):
+        ProjectConfig(
+            package="p",
+            requires_python=RequiresPython((3, 13)),
+            pinned_python=PythonVersions(3, (12, 14)),
+        )
+
+
+def test_python_version_set_discontiguous():
+    config = ProjectConfig(
+        package="p",
+        requires_python=RequiresPython((2, 10), (4, 0)),
+        pinned_python=[PythonVersions(2, (10, 12)), PythonVersions(3, (1, 3))],
+    )
+    assert config.requires_python.specifier == ">=2.10,<4.0"
+    versions = config.pinned_versions
+    assert versions is not None
+    assert versions.versions == [(2, 10), (2, 11), (2, 12), (3, 1), (3, 2), (3, 3)]
+
+
+def test_pinned_python_optional():
+    config = ProjectConfig(package="p", requires_python=RequiresPython((3, 12)))
+    assert config.pinned_versions is None

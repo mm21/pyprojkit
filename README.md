@@ -57,9 +57,13 @@ Then drop three small files into your project root.
 `pyprojconf.py`:
 
 ```python
-from pyprojkit import ProjectConfig, PythonVersions
+from pyprojkit import ProjectConfig, PythonVersions, RequiresPython
 
-config = ProjectConfig(package="my_package", python=PythonVersions(3, (12, 14)))
+config = ProjectConfig(
+    package="my_package",
+    requires_python=RequiresPython((3, 12)),
+    pinned_python=PythonVersions(3, (12, 14)),
+)
 ```
 
 `dodo.py`:
@@ -94,24 +98,31 @@ nox
 
 ### Python versions
 
-`PythonVersions` takes the major version and an inclusive range of minor versions — only versions you explicitly support (i.e. test against):
+Two separate concepts are configured:
+
+- `requires_python` (required) is the minimum and optional exclusive maximum of interpreters the package can be installed on. It's independent of what you test: if the maximum is omitted it's derived from the minimum as the next major version, so downstream dependency resolution stays future-proof.
+- `pinned_python` (optional) is the specific versions you test and target. `PythonVersions` takes the major version and an inclusive range of minor versions; pass a sequence for discontiguous ranges, e.g. `[PythonVersions(3, (8, 9)), PythonVersions(3, (11, 12))]`. Every pinned version must satisfy `requires_python`.
+
+To exclude known-broken minor versions, use `RequiresPython((3, 12), exclude=[(3, 13)])`, which adds `!=3.13.*`.
 
 ```python
-python = PythonVersions(3, (12, 14))
+requires_python = RequiresPython((3, 12))  # requires-python = ">=3.12,<4.0"
+pinned_python = PythonVersions(3, (12, 14))
 ```
 
-This single declaration drives:
+`requires_python` drives `requires-python`. `pinned_python` drives:
 
-- `requires-python` (`>=3.12,<3.15`)
 - Trove classifiers (`Programming Language :: Python :: 3.12`, ...)
 - black's `target-version` (`["py312", "py313", "py314"]`)
-- mypy's `python_version` (`3.12`)
+- mypy's `python_version` (`3.12`, the lowest pinned version)
 - nox interpreter pins (`3.12.13`, `3.13.13`, `3.14.6`)
+
+If `pinned_python` is omitted, classifiers, black's `target-version` and mypy's `python_version` are left unmanaged, and creating the nox test session raises a `ConfigError`.
 
 The exact patch releases used for nox come from a mapping bundled with PyProjKit, updated with each release — so updating PyProjKit refreshes the pins across all your projects. Individual projects can override:
 
 ```python
-python = PythonVersions(3, (12, 14), patch_overrides={(3, 14): "3.14.7"})
+pinned_python = PythonVersions(3, (12, 14), patch_overrides={(3, 14): "3.14.7"})
 ```
 
 ### Tools and profiles
@@ -142,7 +153,8 @@ from pyprojkit import (
 
 config = ProjectConfig(
     package="my_package",
-    python=PythonVersions(3, (12, 14)),
+    requires_python=RequiresPython((3, 12)),
+    pinned_python=PythonVersions(3, (12, 14)),
     tools=replace(
         ToolsConfig.default(),
         doc=DocConfig(sphinx=SphinxConfig(copy_env_var="MY_PACKAGE_DOCS_DIR")),
@@ -274,11 +286,12 @@ register_tools_profile(
 # in each project's pyprojconf.py
 import mycompany_profiles  # noqa: F401 -- registers the profile
 
-from pyprojkit import ProjectConfig, PythonVersions, get_tools_profile
+from pyprojkit import ProjectConfig, PythonVersions, RequiresPython, get_tools_profile
 
 config = ProjectConfig(
     package="my_package",
-    python=PythonVersions(3, (12, 14)),
+    requires_python=RequiresPython((3, 12)),
+    pinned_python=PythonVersions(3, (12, 14)),
     tools=get_tools_profile("mycompany"),
 )
 ```

@@ -42,6 +42,7 @@ from tomlkit.items import AoT, Null, Table
 from .config.base import ConfigError
 from .config.project import ProjectConfig
 from .config.tools import TomlSortConfig
+from .versions import PythonVersionSet
 
 __all__ = [
     "compute_managed_fields",
@@ -94,10 +95,11 @@ def render(config: ProjectConfig, text: str) -> str:
     if project is None:
         raise ConfigError("pyproject.toml has no [project] table")
 
-    _update_classifiers(project, config)
+    if config.pinned_versions is not None:
+        _update_classifiers(project, config.pinned_versions)
 
     fields = compute_managed_fields(config)
-    fields["project"] = {"requires-python": config.python.requires_python}
+    fields["project"] = {"requires-python": config.requires_python.specifier}
 
     # marked fields, plus every field of tables listed in the legacy
     # [tool.pyprojkit].managed bookkeeping (those tables were fully owned)
@@ -225,16 +227,20 @@ def _ensure_header(text: str) -> str:
     return f"{_HEADER_COMMENT}\n\n{text}"
 
 
-def _update_classifiers(project: Table, config: ProjectConfig):
+def _update_classifiers(project: Table, versions: PythonVersionSet):
     """
-    Replace python version classifiers with those derived from config, preserving all
-    others; result is sorted, with managed entries marked by an inline comment.
+    Replace python version classifiers with those derived from pinned versions,
+    preserving all others; result is sorted, with managed entries marked by an inline
+    comment.
 
     Comments in the existing list are preserved: an inline comment stays with its entry,
     and a standalone comment stays with the entry it precedes (or is emitted at the end
     of the list if it precedes none).
     """
-    managed = set(config.python.classifiers)
+    prefix = "Programming Language :: Python :: "
+    managed = {f"{prefix}{maj}" for maj, _ in versions.versions} | {
+        f"{prefix}{maj}.{min}" for maj, min in versions.versions
+    }
     existing = project.get("classifiers", [])
     kept = [str(c) for c in existing if not _CLASSIFIER_RE.match(str(c))]
     leading, inline, trailing = _collect_classifier_comments(

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .. import _paths
-from ..versions import PythonVersions
+from ..versions import PythonVersions, PythonVersionSet, RequiresPython
 from .base import BaseFormatterConfig
 from .tools import (
     CoverageReportConfig,
@@ -201,9 +201,19 @@ class ProjectConfig:
     Import name of the package, e.g. `"trilium_alchemy"`.
     """
 
-    python: PythonVersions
+    requires_python: RequiresPython
     """
-    Supported Python versions.
+    Interpreter versions the package can be installed on (`requires-python`).
+    Independent of the pinned versions: leave the upper bound open for future-proof
+    dependency resolution.
+    """
+
+    pinned_python: PythonVersions | Sequence[PythonVersions] | None = None
+    """
+    Specific Python versions which are tested and targeted by tools (classifiers, black,
+    mypy, nox): a single range, or a sequence of ranges for discontiguous support, e.g.
+    3.8-3.9 and 3.11-3.12. Must all satisfy `requires_python`. Optional, but required by
+    tools which need specific versions.
     """
 
     packages_dir: str = "src"
@@ -221,6 +231,25 @@ class ProjectConfig:
     """
     Tool configurations.
     """
+
+    def __post_init__(self):
+        if self.pinned_versions is None:
+            return
+        for version in self.pinned_versions.versions:
+            if not self.requires_python.contains(version):
+                raise ValueError(
+                    f"Pinned Python {version[0]}.{version[1]} is outside of "
+                    f"requires-python ({self.requires_python.specifier})"
+                )
+
+    @property
+    def pinned_versions(self) -> PythonVersionSet | None:
+        """
+        Pinned Python versions normalized across all configured ranges, if any.
+        """
+        if self.pinned_python is None:
+            return None
+        return PythonVersionSet.from_config(self.pinned_python)
 
     @property
     def package_path(self) -> Path:

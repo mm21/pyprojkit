@@ -49,6 +49,8 @@ from .config import (
 from .versions import (
     DEFAULT_PATCH_VERSIONS,
     PythonVersions,
+    PythonVersionSet,
+    RequiresPython,
 )
 from .discovery import (
     load_config,
@@ -97,6 +99,8 @@ __all__ = [
     "register_tools_profile",
     "DEFAULT_PATCH_VERSIONS",
     "PythonVersions",
+    "PythonVersionSet",
+    "RequiresPython",
     "load_config",
     "compute_managed_fields",
     "render",

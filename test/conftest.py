@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from pyprojkit import ProjectConfig, PythonVersions
+from pyprojkit import ProjectConfig, PythonVersions, RequiresPython
 
 PYPROJECT = """\
 [project]
@@ -29,15 +29,19 @@ keep = true
 """
 
 PYPROJCONF = """\
-from pyprojkit import ProjectConfig, PythonVersions
+from pyprojkit import ProjectConfig, PythonVersions, RequiresPython
 
-config = ProjectConfig(package="fixture_pkg", python=PythonVersions(3, (12, 13)))
+config = ProjectConfig(package="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)))
 """
 
 
 @pytest.fixture
 def config() -> ProjectConfig:
-    return ProjectConfig(package="fixture_pkg", python=PythonVersions(3, (12, 13)))
+    return ProjectConfig(
+        package="fixture_pkg",
+        requires_python=RequiresPython((3, 12)),
+        pinned_python=PythonVersions(3, (12, 13)),
+    )
 
 
 @pytest.fixture

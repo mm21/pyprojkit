@@ -56,7 +56,12 @@ class NoxFactory:
             raise ConfigError("Session 'test' already created")
         self._registered.add("test")
 
-        @nox.session(python=self._config.python.pins, name="test")
+        versions = self._config.pinned_versions
+        if versions is None:
+            raise ConfigError("Session 'test' requires pinned_python to be configured")
+        pins = [versions.patch(v) for v in versions.versions]
+
+        @nox.session(python=pins, name="test")
         def test(session: Session):
             session.run_install(
                 "uv",

@@ -27,7 +27,7 @@ def test_render_managed_content(project: Path, config: ProjectConfig):
 
     # requires-python and classifiers
     project_table = _get_table(doc, "project")
-    assert project_table["requires-python"] == ">=3.12,<3.14"
+    assert project_table["requires-python"] == ">=3.12,<4.0"
     classifiers_item = project_table["classifiers"]
     assert isinstance(classifiers_item, Array)
     classifiers = list(classifiers_item)
@@ -63,7 +63,7 @@ def test_managed_comments(project: Path, config: ProjectConfig):
     assert text.startswith(HEADER + "\n")
 
     # managed fields, requires-python, and version classifiers are marked
-    assert 'requires-python = ">=3.12,<3.14"  # pyprojkit-managed' in text
+    assert 'requires-python = ">=3.12,<4.0"  # pyprojkit-managed' in text
     assert '"Programming Language :: Python :: 3.12",  # pyprojkit-managed' in text
     assert 'testpaths = "test"  # pyprojkit-managed' in text
     assert "quiet = true  # pyprojkit-managed" in text
