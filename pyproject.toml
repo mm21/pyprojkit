@@ -106,6 +106,10 @@ verbosity = 2  # pyprojkit-managed
 profile = "black"  # pyprojkit-managed
 quiet = true  # pyprojkit-managed
 
+[tool.mypy]
+ignore_missing_imports = true  # pyprojkit-managed
+python_version = "3.12"  # pyprojkit-managed
+
 [tool.nox]
 default_venv_backend = "uv"  # pyprojkit-managed
 envdir = "__cache__/nox"  # pyprojkit-managed
