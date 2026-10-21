@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from doit.action import PythonAction
+from doit.task import Task
 
 from pyprojkit import (
     AnalysisConfig,
@@ -13,6 +14,7 @@ from pyprojkit import (
     ProjectConfig,
     TaskFactory,
     ToolsConfig,
+    tasks,
 )
 
 
@@ -85,7 +87,9 @@ def test_publish_task(project: Path):
     assert build_cmd[:3] == ["uv", "build", "--out-dir"]
 
 
-def test_opt_in_tasks(project: Path, config: ProjectConfig):
+def test_opt_in_tasks(
+    project: Path, config: ProjectConfig, monkeypatch: pytest.MonkeyPatch
+):
     factory = TaskFactory()
 
     # analysis not configured
@@ -103,11 +107,9 @@ def test_opt_in_tasks(project: Path, config: ProjectConfig):
     # enable analysis
     enabled = replace(config, tools=replace(config.tools, analysis=AnalysisConfig()))
     task = TaskFactory(config=enabled).create_analysis_task()()
-    assert [_py_action(a).args[0][0] for a in task.actions] == ["mypy", "pyright"]
-    assert [_py_action(a).args[0][-1] for a in task.actions] == [
-        "src/fixture_pkg",
-        "src/fixture_pkg",
-    ]
+    cmds = _run_task(task, monkeypatch)
+    assert [cmd[0] for cmd in cmds] == ["mypy", "pyright"]
+    assert [cmd[-1] for cmd in cmds] == ["src/fixture_pkg", "src/fixture_pkg"]
 
     # override packages location
     flat = replace(enabled, packages_dir=".")
@@ -115,10 +117,8 @@ def test_opt_in_tasks(project: Path, config: ProjectConfig):
     task = factory.create_init_task()()
     assert _py_action(task.actions[0]).args[0][:2] == ["mkinit", "fixture_pkg"]
     task = factory.create_analysis_task()()
-    assert [_py_action(a).args[0][-1] for a in task.actions] == [
-        "fixture_pkg",
-        "fixture_pkg",
-    ]
+    cmds = _run_task(task, monkeypatch)
+    assert [cmd[-1] for cmd in cmds] == ["fixture_pkg", "fixture_pkg"]
 
 
 def test_doit_list_smoke(project: Path):
@@ -146,6 +146,18 @@ def test_doit_list_smoke(project: Path):
     assert result.returncode == 0, result.stderr
     listed = {line.split()[0] for line in result.stdout.splitlines() if line.strip()}
     assert {"sync", "format", "test", "badges", "publish", "init"} <= listed
+
+
+def _run_task(task: Task, monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """
+    Run task's actions, recording commands instead of running them.
+    """
+    cmds: list[list[str]] = []
+    monkeypatch.setattr(tasks, "run", lambda cmd, expect_rc=0: cmds.append(cmd))
+    for action in task.actions:
+        action = _py_action(action)
+        action.py_callable(*action.args, **action.kwargs)
+    return cmds
 
 
 def _py_action(action: object) -> PythonAction:
