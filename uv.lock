@@ -526,9 +526,13 @@ wheels = [
 [[package]]
 name = "mkinit"
 version = "1.3.0"
-source = { git = "https://github.com/mm21/mkinit.git#2e7cae2e5d35c00ccf9a843e990509ced4fb955a" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ubelt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/34/3e/160ef650c13c5cbc444143ca6869d7e06bc608eedb693f34dd5cc238ea98/mkinit-1.3.0.tar.gz", hash = "sha256:e6c7cc96ba20ddf80dc646744ef576aa1377541cc9fee0c131bdabff05f9ef0a", size = 70753, upload-time = "2026-10-21T21:14:02.283Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/60/54e5cfe33db8706668892a2bb75d072037bde6389fac250d96c16fe831fc/mkinit-1.3.0-py3-none-any.whl", hash = "sha256:c71480d10d5deb07ca917eac2d970c7e64b39ce47ce7271b7952a0ae8eed504b", size = 63995, upload-time = "2026-10-21T21:14:00.769Z" },
 ]
 
 [[package]]
@@ -797,7 +801,7 @@ requires-dist = [
     { name = "doit", specifier = ">=0.36.0,<0.37" },
     { name = "genbadge", extras = ["tests", "coverage"], marker = "extra == 'test'", specifier = ">=1.1.0,<2" },
     { name = "isort", marker = "extra == 'format'", specifier = ">=6.0.1,<7" },
-    { name = "mkinit", marker = "extra == 'doc'", git = "https://github.com/mm21/mkinit.git" },
+    { name = "mkinit", marker = "extra == 'doc'", specifier = ">=1.3.0,<2" },
     { name = "mypy", extras = ["reports"], marker = "extra == 'analysis'", specifier = ">=1.5.1,<2" },
     { name = "nox", specifier = ">=2026.4.10" },
     { name = "pyprojkit", extras = ["analysis", "doc", "format", "test"], marker = "extra == 'all'" },
