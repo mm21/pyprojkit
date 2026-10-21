@@ -375,7 +375,7 @@ class TaskFactory:
         Create `init` task which generates `__init__.py` files using mkinit.
         """
         mkinit = self._require(
-            self._config.tools.doc and self._config.tools.doc.mkinit, "tools.doc.mkinit"
+            doc.mkinit if (doc := self._config.tools.doc) else None, "tools.doc.mkinit"
         )
         package_path = self._config.package_path
 
@@ -397,7 +397,7 @@ class TaskFactory:
         Create `doc` task which builds documentation using sphinx.
         """
         sphinx = self._require(
-            self._config.tools.doc and self._config.tools.doc.sphinx, "tools.doc.sphinx"
+            doc.sphinx if (doc := self._config.tools.doc) else None, "tools.doc.sphinx"
         )
 
         def _do_copy(copy: bool):

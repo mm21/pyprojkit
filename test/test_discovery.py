@@ -8,6 +8,7 @@ from pyprojkit import ConfigError, load_config
 def test_load(project: Path):
     config = load_config()
     assert config.package == "fixture_pkg"
+    assert config.pinned_versions is not None
     assert config.pinned_versions.versions == [(3, 12), (3, 13)]
 
 

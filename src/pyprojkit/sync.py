@@ -72,12 +72,12 @@ def compute_managed_fields(config: ProjectConfig) -> dict[str, dict[str, Any]]:
             tables[formatter.table_path] = formatter.to_toml(config)
 
     if test := tools.test:
-        for tool in (test.pytest, test.coverage_run, test.coverage_report):
-            tables[tool.table_path] = tool.to_toml(config)
+        for test_tool in (test.pytest, test.coverage_run, test.coverage_report):
+            tables[test_tool.table_path] = test_tool.to_toml(config)
 
-    for tool in (tools.doit, tools.nox):
-        if tool:
-            tables[tool.table_path] = tool.to_toml(config)
+    for runner in (tools.doit, tools.nox):
+        if runner:
+            tables[runner.table_path] = runner.to_toml(config)
 
     if (analysis := tools.analysis) and analysis.mypy:
         tables[analysis.mypy.table_path] = analysis.mypy.to_toml(config)
@@ -345,7 +345,7 @@ def _scan_legacy_fields(doc: TOMLDocument) -> set[tuple[str, str]]:
     bookkeeping as managed; those tables were fully owned by pyprojkit < 0.4.
     """
     try:
-        legacy_paths = list(doc["tool"]["pyprojkit"]["managed"])  # type: ignore[index]
+        legacy_paths = list(doc["tool"]["pyprojkit"]["managed"])  # type: ignore[index,arg-type]
     except (KeyError, TypeError):
         return set()
 
