@@ -50,7 +50,9 @@ def lock_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     Record lock commands instead of running them.
     """
     calls: list[list[str]] = []
-    monkeypatch.setattr(sys.modules["pyprojkit.sync"], "run", lambda cmd, *a, **k: calls.append(cmd))
+    monkeypatch.setattr(
+        sys.modules["pyprojkit.sync"], "run", lambda cmd, *a, **k: calls.append(cmd)
+    )
     return calls
 
 

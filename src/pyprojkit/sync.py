@@ -44,10 +44,10 @@ import tomlkit
 from tomlkit import TOMLDocument
 from tomlkit.items import AoT, Null, Table
 
+from ._run import run
 from .config.base import ConfigError
 from .config.project import ProjectConfig, SkillConfig
 from .config.tools import TomlSortConfig
-from ._run import run
 from .skill import SKILL_NAME, render_skill
 from .versions import PythonVersionSet
 
