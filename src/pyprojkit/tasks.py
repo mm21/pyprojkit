@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Callable
 
 from doit import task_params
+from doit.exceptions import TaskFailed
 from doit.task import Task
 from doit.tools import create_folder
 
@@ -332,32 +333,40 @@ class TaskFactory:
         analysis = self._require(self._config.tools.analysis, "tools.analysis")
         package_path = self._config.package_path
 
+        commands: list[list[str]] = []
+
+        if analysis.mypy:
+            commands.append(
+                [
+                    "mypy",
+                    "--html-report",
+                    str(_paths.MYPY_HTML_PATH),
+                    "--cobertura-xml-report",
+                    str(_paths.MYPY_XML_PATH),
+                    str(package_path),
+                ]
+            )
+
+        if analysis.pyright:
+            commands.append(["pyright", str(package_path)])
+
+        def _run_analysis() -> TaskFailed | None:
+            # run every tool even if an earlier one fails
+            failures: list[str] = []
+            for cmd in commands:
+                try:
+                    run(cmd)
+                except SystemExit as e:
+                    failures.append(str(e.code))
+
+            if failures:
+                return TaskFailed("\n".join(failures))
+            return None
+
         def task_analysis() -> Task:
-            actions = []
-
-            if analysis.mypy:
-                actions.append(
-                    (
-                        run,
-                        (
-                            [
-                                "mypy",
-                                "--html-report",
-                                str(_paths.MYPY_HTML_PATH),
-                                "--cobertura-xml-report",
-                                str(_paths.MYPY_XML_PATH),
-                                str(package_path),
-                            ],
-                        ),
-                    )
-                )
-
-            if analysis.pyright:
-                actions.append((run, (["pyright", str(package_path)],)))
-
             return Task(
                 "analysis",
-                actions=actions,
+                actions=[(_run_analysis,)],
                 targets=[],
                 file_dep=[],
                 doc="Run static analysis tools",
