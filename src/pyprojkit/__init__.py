@@ -9,6 +9,7 @@ __submodules__ = [
     "config",
     "versions",
     "discovery",
+    "skill",
     "sync",
     "tasks",
     "sessions",
@@ -40,7 +41,7 @@ from .config import (
     SphinxConfig,
     AnalysisConfig,
     PublishConfig,
-    ClaudeConfig,
+    SkillConfig,
     create_kitchen_sink_tools,
 )
 from .versions import (
@@ -51,6 +52,9 @@ from .versions import (
 )
 from .discovery import (
     load_config,
+)
+from .skill import (
+    render_skill,
 )
 from .sync import (
     compute_managed_fields,
@@ -89,13 +93,14 @@ __all__ = [
     "SphinxConfig",
     "AnalysisConfig",
     "PublishConfig",
-    "ClaudeConfig",
+    "SkillConfig",
     "create_kitchen_sink_tools",
     "DEFAULT_PATCH_VERSIONS",
     "PythonVersions",
     "PythonVersionSet",
     "RequiresPython",
     "load_config",
+    "render_skill",
     "compute_managed_fields",
     "render",
     "TaskFactory",

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
+from typing import Literal, Sequence
 
 from .. import _paths
 from ..versions import PythonVersions, PythonVersionSet, RequiresPython
@@ -30,7 +30,7 @@ __all__ = [
     "SphinxConfig",
     "AnalysisConfig",
     "PublishConfig",
-    "ClaudeConfig",
+    "SkillConfig",
 ]
 
 
@@ -134,15 +134,18 @@ class PublishConfig:
 
 
 @dataclass(kw_only=True)
-class ClaudeConfig:
+class SkillConfig:
     """
-    Claude Code integration: managed skills written to `.claude/skills/`.
+    Agent skill integration: a `pyprojkit-python` skill in the
+    [Agent Skills](https://agentskills.io) format, generated from the project's
+    configuration so it instructs agents to run the workflow tasks which are enabled
+    (formatting, analysis, testing, etc).
     """
 
-    skills: tuple[str, ...] = ("modern-python",)
+    skills_dir: str = ".claude/skills"
     """
-    Built-in skills to sync into the project; each is written to
-    `.claude/skills/<name>/SKILL.md` and overwritten on every sync.
+    Skills directory, relative to the project root, to write the skill to as
+    `<skills_dir>/pyprojkit-python/SKILL.md`.
     """
 
 
@@ -157,6 +160,12 @@ class ToolsConfig:
     global.
     """
 
+    workflow_tool: Literal["uv", "poetry"] | None = None
+    """
+    Development workflow tool which manages the project's environment; when set,
+    commands given to agents are run through it, e.g. `uv run doit test`.
+    """
+
     formatting: FormattingConfig | None = None
     test: TestConfig | None = None
     doit: DoitConfig | None = None
@@ -164,9 +173,9 @@ class ToolsConfig:
     doc: DocConfig | None = None
     analysis: AnalysisConfig | None = None
     publish: PublishConfig | None = None
-    claude: ClaudeConfig | None = None
+    skill: SkillConfig | None = None
     """
-    Claude Code integration. When `None`, managed skill files are removed on the next
+    Agent skill integration. When `None`, managed skill files are removed on the next
     sync.
     """
 

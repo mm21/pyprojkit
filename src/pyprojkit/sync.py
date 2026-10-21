@@ -1,6 +1,6 @@
 """
-Sync engine: writes managed parts of `pyproject.toml` (and managed Claude skills) from a
-project's `pyprojconf.py`.
+Sync engine: writes managed parts of `pyproject.toml` (and the generated agent skill)
+from a project's `pyprojconf.py`.
 
 Managed content:
 
@@ -15,8 +15,9 @@ Managed content:
   that way is pruned. All other keys and comments in those tables belong to the
   project and are preserved. (The marker comment is reserved: don't put it on your
   own fields.)
-- Claude skill files under `.claude/skills/<name>/SKILL.md` for built-in skills,
-  overwritten on every sync and removed when dropped from the configuration
+- The generated `pyprojkit-python` agent skill under
+  `<skills_dir>/pyprojkit-python/SKILL.md`, overwritten on every sync and removed when
+  dropped from the configuration
 
 Everything else (dependencies, build-system, urls, unmanaged fields and tables, etc.) is
 preserved. Output is normalized with toml-sort (as a library, using the same settings as
@@ -31,7 +32,6 @@ from __future__ import annotations
 
 import difflib
 import re
-from importlib import resources
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -40,8 +40,9 @@ from tomlkit import TOMLDocument
 from tomlkit.items import AoT, Null, Table
 
 from .config.base import ConfigError
-from .config.project import ProjectConfig
+from .config.project import ProjectConfig, SkillConfig
 from .config.tools import TomlSortConfig
+from .skill import SKILL_NAME, render_skill
 from .versions import PythonVersionSet
 
 __all__ = [
@@ -57,9 +58,6 @@ _LEGACY_MARKER = "managed by pyprojkit"
 
 _HEADER_LINK = "https://github.com/mm21/pyprojkit"
 _HEADER_COMMENT = f"# managed (in part) by pyprojkit: {_HEADER_LINK}"
-
-_SKILLS_DIR = Path(".claude") / "skills"
-_BUILTIN_SKILLS = ("modern-python",)
 
 
 def compute_managed_fields(config: ProjectConfig) -> dict[str, dict[str, Any]]:
@@ -127,7 +125,7 @@ def sync(
     check: bool = False,
 ) -> bool:
     """
-    Sync `pyproject.toml` and managed Claude skills under the given project root
+    Sync `pyproject.toml` and the generated agent skill under the given project root
     (defaulting to the current directory).
 
     In check mode, nothing is written; prints a diff and returns `False` if out of sync.
@@ -187,25 +185,22 @@ def _iter_skill_files(
     Yield `(path, desired_content)` for each managed skill file; `None` content means
     the file should not exist.
 
-    Built-in skills dropped from the configuration (including via `claude=None`) are
-    pruned — the built-in skill namespace is pyprojkit-owned. Skills under other names
-    are never touched.
+    The skill name is namespaced (`pyprojkit-*`), so it's owned by pyprojkit: the
+    generated skill in the default skills directory is pruned when no longer configured
+    (including via `skill=None`).
     """
-    configured = config.tools.claude.skills if config.tools.claude else ()
+    desired: Path | None = None
+    if skill := config.tools.skill:
+        desired = _skill_path(root, skill.skills_dir)
+        yield desired, render_skill(config)
 
-    for name in configured:
-        if name not in _BUILTIN_SKILLS:
-            raise ConfigError(f"unknown skill: '{name}'")
-        content = (
-            resources.files("pyprojkit") / "resources" / "skills" / name / "SKILL.md"
-        ).read_text()
-        yield root / _SKILLS_DIR / name / "SKILL.md", content
+    default = _skill_path(root, SkillConfig().skills_dir)
+    if default != desired and default.is_file():
+        yield default, None
 
-    for name in _BUILTIN_SKILLS:
-        if name not in configured:
-            path = root / _SKILLS_DIR / name / "SKILL.md"
-            if path.is_file():
-                yield path, None
+
+def _skill_path(root: Path, skills_dir: str) -> Path:
+    return root / skills_dir / SKILL_NAME / "SKILL.md"
 
 
 def _prune_dirs(path: Path, stop: Path):

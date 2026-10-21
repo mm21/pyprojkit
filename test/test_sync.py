@@ -9,15 +9,22 @@ import pytest
 import tomlkit
 from tomlkit.items import Array, Table
 
-from pyprojkit import ConfigError, FormattingConfig, ProjectConfig, sync
+from pyprojkit import (
+    AnalysisConfig,
+    FormattingConfig,
+    ProjectConfig,
+    ToolsConfig,
+    sync,
+)
 from pyprojkit.cli import main
-from pyprojkit.config.project import ClaudeConfig
+from pyprojkit.config.project import SkillConfig
 from pyprojkit.config.tools import BlackConfig, TomlSortConfig
+from pyprojkit.skill import render_skill
 from pyprojkit.sync import render
 
 HEADER = "# managed (in part) by pyprojkit: https://github.com/mm21/pyprojkit"
 
-SKILL_PATH = Path(".claude") / "skills" / "modern-python" / "SKILL.md"
+SKILL_PATH = Path(".claude") / "skills" / "pyprojkit-python" / "SKILL.md"
 
 
 def test_render_managed_content(project: Path, config: ProjectConfig):
@@ -296,19 +303,60 @@ def test_skills_sync(project: Path, config: ProjectConfig):
     sync(config, project)
     assert skill.is_file()
 
-    # disabling claude prunes the managed skill (and emptied directories)
-    no_claude = replace(config, tools=replace(config.tools, claude=None))
-    sync(no_claude, project)
+    # moving to another directory prunes the default one
+    custom = replace(
+        config,
+        tools=replace(config.tools, skill=SkillConfig(skills_dir=".agents/skills")),
+    )
+    sync(custom, project)
+    assert (project / ".agents" / "skills" / "pyprojkit-python" / "SKILL.md").is_file()
+    assert not (project / ".claude").exists()
+    sync(config, project)
+
+    # disabling the skill prunes it (and emptied directories)
+    no_skill = replace(config, tools=replace(config.tools, skill=None))
+    sync(no_skill, project)
     assert not skill.exists()
     assert not (project / ".claude").exists()
 
 
-def test_skills_unknown_name(project: Path, config: ProjectConfig):
-    bad = replace(
-        config, tools=replace(config.tools, claude=ClaudeConfig(skills=("nope",)))
+def test_skill_content(config: ProjectConfig):
+    content = render_skill(config)
+    assert content.startswith("---\nname: pyprojkit-python\n")
+    assert "Python 3.12+" in content
+    assert "Tested Python versions: 3.12, 3.13." in content
+    for task in ("init", "format", "test"):
+        assert f"`uv run doit {task}`" in content
+    # analysis is disabled in the fixture config
+    assert "doit analysis" not in content
+    assert "## Conventions" in content
+
+    # without a workflow tool, commands are run directly
+    minimal = replace(config, tools=ToolsConfig(skill=SkillConfig()))
+    content = render_skill(minimal)
+    assert "## Before finishing a task" not in content
+    assert "## Conventions" in content
+    assert "`pyprojkit sync`" in content
+
+    poetry = replace(config, tools=replace(config.tools, workflow_tool="poetry"))
+    assert "`poetry run doit test`" in render_skill(poetry)
+
+    # without doit, tasks aren't listed and sync is run via the CLI
+    no_doit = replace(config, tools=replace(config.tools, doit=None))
+    content = render_skill(no_doit)
+    assert "doit" not in content
+    assert "`uv run pyprojkit sync`" in content
+    assert (
+        "\nFor changes which may behave differently across Python versions, run "
+        "`uv run nox`" in content
     )
-    with pytest.raises(ConfigError):
-        sync(bad, project)
+
+    analysis = replace(
+        config, tools=replace(config.tools, analysis=AnalysisConfig(mypy=None))
+    )
+    assert "`uv run doit analysis`: runs static analysis (pyright)" in render_skill(
+        analysis
+    )
 
 
 def test_check_reports_all_drift(project: Path, config: ProjectConfig):

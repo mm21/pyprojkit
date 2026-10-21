@@ -20,10 +20,10 @@ from __future__ import annotations
 
 from .project import (
     AnalysisConfig,
-    ClaudeConfig,
     DocConfig,
     FormattingConfig,
     PublishConfig,
+    SkillConfig,
     TestConfig,
     ToolsConfig,
 )
@@ -44,11 +44,12 @@ __all__ = [
 
 def create_kitchen_sink_tools() -> ToolsConfig:
     """
-    Get a new instance of the configuration which enables every tool: formatting,
-    testing, doit, nox, mkinit, static analysis, publishing and Claude skills. Sphinx is
-    left disabled since it needs project-specific settings.
+    Get a new instance of the configuration which enables every tool: uv as the workflow
+    tool, formatting, testing, doit, nox, mkinit, static analysis, publishing and the
+    agent skill. Sphinx is left disabled since it needs project-specific settings.
     """
     return ToolsConfig(
+        workflow_tool="uv",
         formatting=FormattingConfig(
             formatters=(
                 AutoflakeConfig(),
@@ -64,5 +65,5 @@ def create_kitchen_sink_tools() -> ToolsConfig:
         doc=DocConfig(),
         analysis=AnalysisConfig(),
         publish=PublishConfig(),
-        claude=ClaudeConfig(),
+        skill=SkillConfig(),
     )

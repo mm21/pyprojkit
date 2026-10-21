@@ -16,7 +16,7 @@ Development workflow toolkit for Python projects
     - [Tools](#tools)
   - [Syncing `pyproject.toml`](#syncing-pyprojecttoml)
     - [Managed content](#managed-content)
-    - [Claude Code skills](#claude-code-skills)
+    - [Agent skill](#agent-skill)
     - [Check mode](#check-mode)
   - [doit tasks](#doit-tasks)
   - [nox sessions](#nox-sessions)
@@ -129,13 +129,14 @@ pinned_python = PythonVersions(3, (12, 14), patch_overrides={(3, 14): "3.14.7"})
 
 Tool configurations are grouped by category under `ToolsConfig`. Every category defaults to `None`, so the default configuration is minimal: no tools are managed and only the `sync` task exists. Set a category to enable it:
 
+- `workflow_tool`: `"uv"` or `"poetry"`, the tool managing the project environment; commands in the agent skill are run through it, e.g. `uv run doit test`
 - `formatting`: ordered chain of formatters, e.g. autoflake &rarr; isort &rarr; docfmt &rarr; black &rarr; toml-sort
 - `test`: pytest + coverage settings
 - `doit`, `nox`: cache locations and backends
 - `doc`: documentation tools — mkinit and sphinx (each opt-in within)
 - `analysis`: mypy + pyright
 - `publish`: build/publish output directory
-- `claude`: Claude Code skills
+- `skill`: a `pyprojkit-python` [agent skill](https://agentskills.io) generated from the configuration
 
 `create_kitchen_sink_tools()` returns a `ToolsConfig` with everything enabled (except sphinx, which needs project-specific settings). Customize it with `dataclasses.replace`:
 
@@ -194,15 +195,17 @@ Everything else — dependencies, `[tool.uv.sources]`, build system, unmanaged f
 
 Files synced by PyProjKit < 0.4 (whole-table ownership with a `[tool.pyprojkit]` bookkeeping table) are migrated automatically in a single sync.
 
-### Claude Code skills
+### Agent skill
 
-PyProjKit ships built-in [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills), synced to `.claude/skills/<name>/SKILL.md`. Enable the `modern-python` skill (included in `create_kitchen_sink_tools()`):
+PyProjKit generates a `pyprojkit-python` skill in the [Agent Skills](https://agentskills.io) format, usable by any agent which supports it (Claude Code, Codex, Cursor, etc). Its content is derived from your configuration: the Python versions to target, conventions such as placing internal (`_`-prefixed) symbols after public ones of the same kind, and, when `doit` is enabled, a checklist of the workflow tasks you've enabled to run before finishing a task — `doit init` with mkinit, `doit format` with formatting, `doit analysis` with analysis, `doit test` with testing Commands are prefixed with `<workflow_tool> run` when a workflow tool is configured.
 
 ```python
-tools=replace(ToolsConfig(), claude=ClaudeConfig(skills=("modern-python",)))
+tools=replace(ToolsConfig(), skill=SkillConfig())
 ```
 
-Managed skill files are overwritten on every sync (so they refresh when PyProjKit is updated) and removed when dropped from the configuration; disable entirely with `claude=None`. Skills under other names in `.claude/skills/` are never touched.
+The skill is written to `.claude/skills/pyprojkit-python/SKILL.md` by default; set `SkillConfig.skills_dir` to write it elsewhere, e.g. `skills_dir=".agents/skills"` for agents reading the cross-agent location.
+
+The generated skill file is overwritten on every sync (so it tracks both your configuration and PyProjKit updates) and removed when dropped from the configuration; disable entirely with `skill=None`. The `pyprojkit-` prefix namespaces the skill, so it never collides with your own skills.
 
 ### Check mode
 
@@ -212,7 +215,7 @@ Verify a project is in sync without writing (e.g. in CI):
 pyprojkit sync --check
 ```
 
-Prints a diff and exits nonzero if `pyproject.toml` or any managed skill file is out of date.
+Prints a diff and exits nonzero if `pyproject.toml` or the generated skill is out of date.
 
 ## doit tasks
 

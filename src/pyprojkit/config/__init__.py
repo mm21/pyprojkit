@@ -39,7 +39,7 @@ from .project import (
     SphinxConfig,
     AnalysisConfig,
     PublishConfig,
-    ClaudeConfig,
+    SkillConfig,
 )
 from .profiles import (
     create_kitchen_sink_tools,
@@ -69,7 +69,7 @@ __all__ = [
     "SphinxConfig",
     "AnalysisConfig",
     "PublishConfig",
-    "ClaudeConfig",
+    "SkillConfig",
     "create_kitchen_sink_tools",
 ]
 # </AUTOGEN_INIT>
