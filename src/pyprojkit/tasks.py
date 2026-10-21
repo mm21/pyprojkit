@@ -20,22 +20,28 @@ or equivalently: `globals().update(factory.create_all_tasks())`.
 
 from __future__ import annotations
 
+import contextlib
+import difflib
 import os
 import shutil
+import tempfile
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Sequence
 
 from doit import task_params
-from doit.exceptions import TaskFailed
+from doit.action import PythonAction
+from doit.exceptions import BaseFail, TaskFailed
 from doit.task import Task
 from doit.tools import create_folder
 
 from . import _paths
 from ._run import cleanup_dir, run
 from .config.base import ConfigError
-from .config.project import ProjectConfig
+from .config.project import ProjectConfig, SkillConfig
 from .discovery import load_config
+from .skill import SKILL_NAME
 from .sync import sync
 
 __all__ = [
@@ -43,6 +49,128 @@ __all__ = [
 ]
 
 type TaskCreator = Callable[..., Task]
+
+type _Action = tuple[Callable[..., Any], Sequence[Any], dict[str, Any]]
+
+
+def _run_all(commands: list[list[str]]) -> TaskFailed | None:
+    """
+    Run every command even if an earlier one fails, failing if any did.
+    """
+    failures: list[str] = []
+    for cmd in commands:
+        try:
+            run(cmd)
+        except SystemExit as e:
+            failures.append(str(e.code))
+
+    if failures:
+        return TaskFailed("\n".join(failures))
+    return None
+
+
+def _run_actions(actions: list[_Action]) -> str | None:
+    """
+    Run actions in order with doit's semantics, stopping at the first failure.
+
+    :return: Error message upon failure
+    """
+    for func, args, kwargs in actions:
+        try:
+            result = func(*args, **kwargs)
+        except SystemExit as e:
+            return str(e.code)
+        except Exception as e:
+            return f"{type(e).__name__}: {e}"
+
+        if result is False:
+            return "action returned False"
+        if isinstance(result, BaseFail):
+            return result.message
+
+    return None
+
+
+def _task_actions(creator: TaskCreator) -> list[_Action]:
+    """
+    Get the actions of the task created by the given creator.
+    """
+    return [
+        (action.py_callable, action.args, action.kwargs)
+        for action in creator().actions
+        if isinstance(action, PythonAction)
+    ]
+
+
+def _in_ci() -> bool:
+    """
+    Check whether running in CI, per the `CI` environment variable set by most CI
+    providers.
+    """
+    return os.environ.get("CI", "").lower() not in ("", "0", "false", "no")
+
+
+def _populate_sandbox(config: ProjectConfig, root: Path, sandbox: Path):
+    """
+    Copy the files which preflight steps may edit into the sandbox: root files, format
+    paths, the package, badges, and generated skills.
+    """
+    for path in root.iterdir():
+        if path.is_file():
+            shutil.copy2(path, sandbox / path.name)
+
+    skills_dirs = {SkillConfig().skills_dir}
+    if skill := config.tools.skill:
+        skills_dirs.add(skill.skills_dir)
+
+    dirs = [
+        *(Path(p) for p in config.format_paths),
+        config.package_path,
+        _paths.BADGES_PATH,
+        *(Path(d) / SKILL_NAME for d in skills_dirs),
+    ]
+
+    # sorted so parents come first and nested dirs are skipped
+    copied: list[Path] = []
+    for rel in sorted(dirs):
+        if any(rel.is_relative_to(c) for c in copied) or not (root / rel).is_dir():
+            continue
+        shutil.copytree(
+            root / rel, sandbox / rel, ignore=shutil.ignore_patterns("__pycache__")
+        )
+        copied.append(rel)
+
+
+def _snapshot(root: Path) -> dict[str, bytes]:
+    """
+    Get the contents of all files under the given root, keyed by relative path,
+    excluding caches and outputs.
+    """
+    excluded = {_paths.CACHE_PATH, _paths.OUT_PATH}
+    return {
+        rel.as_posix(): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+        and "__pycache__" not in (rel := path.relative_to(root)).parts
+        and Path(rel.parts[0]) not in excluded
+    }
+
+
+def _compare(old: dict[str, bytes], new: dict[str, bytes]) -> list[str]:
+    """
+    Print a diff of each changed file, returning their paths.
+    """
+    changed = sorted(p for p in old.keys() | new.keys() if old.get(p) != new.get(p))
+    for path in changed:
+        diff = difflib.unified_diff(
+            old.get(path, b"").decode(errors="replace").splitlines(keepends=True),
+            new.get(path, b"").decode(errors="replace").splitlines(keepends=True),
+            fromfile=f"{path} (on disk)",
+            tofile=f"{path} (edited)",
+        )
+        # terminate lines lacking a newline (at end of file) so they don't run together
+        print("".join(line.rstrip("\n") + "\n" for line in diff), end="", flush=True)
+    return changed
 
 
 def _normalize_svg(path: Path | str):
@@ -350,23 +478,10 @@ class TaskFactory:
         if analysis.pyright:
             commands.append(["pyright", str(package_path)])
 
-        def _run_analysis() -> TaskFailed | None:
-            # run every tool even if an earlier one fails
-            failures: list[str] = []
-            for cmd in commands:
-                try:
-                    run(cmd)
-                except SystemExit as e:
-                    failures.append(str(e.code))
-
-            if failures:
-                return TaskFailed("\n".join(failures))
-            return None
-
         def task_analysis() -> Task:
             return Task(
                 "analysis",
-                actions=[(_run_analysis,)],
+                actions=[(_run_all, (commands,))],
                 targets=[],
                 file_dep=[],
                 doc="Run static analysis tools",
@@ -404,9 +519,190 @@ class TaskFactory:
         if tools.analysis:
             creators["task_analysis"] = self.create_analysis_task()
 
+        creators["task_preflight"] = self.create_preflight_task()
+
         return creators
+
+    def create_preflight_task(self) -> TaskCreator:
+        """
+        Create `preflight` task which runs every enabled step: sync, init, format,
+        analysis, test, badges, and nox.
+
+        All steps run even if earlier ones fail; the task then fails once, listing the
+        failed steps. Pass `--no-test` to skip the test steps (test, badges, nox).
+
+        By default, steps which edit files (sync, init, format, badges) do so in place.
+        Pass `--check` (the default when the `CI` environment variable is set) to
+        instead run them on a temporary copy of the project and fail if any file would
+        change.
+        """
+        config, tools = self._config, self._config.tools
+
+        # in run order; actions are created lazily so each step sees the effects of
+        # previous ones, e.g. files generated by init
+        steps: list[_Step] = [
+            _Step("sync", lambda f: _task_actions(f.create_sync_task()), edits=True),
+        ]
+
+        if tools.doc and tools.doc.mkinit:
+            steps.append(
+                _Step("init", lambda f: _task_actions(f.create_init_task()), edits=True)
+            )
+
+        if tools.formatting:
+            steps.append(
+                _Step(
+                    "format",
+                    lambda f: _task_actions(f.create_format_task()),
+                    edits=True,
+                )
+            )
+
+        if tools.analysis:
+            steps.append(
+                _Step("analysis", lambda f: _task_actions(f.create_analysis_task()))
+            )
+
+        if tools.test:
+            steps.append(
+                _Step("test", lambda f: _task_actions(f.create_test_task()), test=True)
+            )
+            steps.append(
+                _Step(
+                    "badges",
+                    lambda f: _task_actions(f.create_badges_task()),
+                    edits=True,
+                    test=True,
+                    inputs=(_paths.JUNIT_PATH, _paths.COV_XML_PATH),
+                )
+            )
+
+            if tools.nox and config.pinned_versions is not None:
+                steps.append(_Step("nox", lambda _: [(run, (["nox"],), {})], test=True))
+
+        def _preflight(check: bool, no_test: bool) -> TaskFailed | None:
+            if check:
+                with tempfile.TemporaryDirectory() as tmp:
+                    return self._run_preflight(steps, no_test, Path(tmp))
+            return self._run_preflight(steps, no_test, None)
+
+        @task_params(
+            [
+                {
+                    "name": "check",
+                    "long": "check",
+                    "type": bool,
+                    "default": _in_ci(),
+                    "help": "Fail if any file would be edited, instead of editing it "
+                    "(default when CI is set)",
+                },
+                {
+                    "name": "no_test",
+                    "long": "no-test",
+                    "type": bool,
+                    "default": False,
+                    "help": "Skip test steps (test, badges, nox)",
+                },
+            ]
+        )
+        def task_preflight(check: bool = False, no_test: bool = False) -> Task:
+            return Task(
+                "preflight",
+                actions=[(_preflight, (check, no_test))],
+                targets=[],
+                file_dep=[],
+                verbosity=2,
+                doc="Run all development workflow steps, reporting failures at the end",
+            )
+
+        return task_preflight
+
+    def _run_preflight(
+        self, steps: list[_Step], no_test: bool, sandbox: Path | None
+    ) -> TaskFailed | None:
+        """
+        Run preflight steps, editing files in the given sandbox (check mode) if any.
+        """
+        failures: list[str] = []
+
+        def record(name: str, error: str):
+            print(f"##### Failed: {name}: {error}", flush=True)
+            failures.append(f"{name}: {error}")
+
+        # in check mode, edits are made in the sandbox and compared once all steps have
+        # run, as a later step may undo an earlier one's changes (e.g. format reformats
+        # files generated by init)
+        sandbox_factory: TaskFactory | None = None
+        original: dict[str, bytes] = {}
+        if sandbox is not None:
+            _populate_sandbox(self._config, self._root, sandbox)
+            sandbox_factory = TaskFactory(config=self._config, root=sandbox)
+            original = _snapshot(sandbox)
+
+        for step in steps:
+            if no_test and step.test:
+                print(f"##### Skipping: {step.name}", flush=True)
+                continue
+
+            print(f"##### Step: {step.name}", flush=True)
+            if sandbox_factory is not None and step.edits:
+                assert sandbox is not None
+                for path in step.inputs:
+                    if (self._root / path).is_file():
+                        (sandbox / path).parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(self._root / path, sandbox / path)
+                with contextlib.chdir(sandbox):
+                    error = _run_actions(step.get_actions(sandbox_factory))
+            else:
+                error = _run_actions(step.get_actions(self))
+
+            if error is not None:
+                record(step.name, error)
+
+        if sandbox is not None:
+            print("##### Check: comparing edits", flush=True)
+            if changed := _compare(original, _snapshot(sandbox)):
+                record("check", "would change " + ", ".join(changed))
+
+        print()
+        if failures:
+            return TaskFailed("Failed steps:\n" + "\n".join(f"- {f}" for f in failures))
+
+        print("##### All steps passed")
+        return None
 
     def _require[T](self, value: T | None, name: str) -> T:
         if value is None:
             raise ConfigError(f"Configuration does not set `{name}`")
         return value
+
+
+@dataclass(frozen=True)
+class _Step:
+    """
+    Step of the `preflight` task.
+    """
+
+    name: str
+
+    get_actions: Callable[[TaskFactory], list[_Action]]
+    """
+    Get the step's actions from a factory, which is rooted at the sandbox for steps
+    which edit files in check mode.
+    """
+
+    edits: bool = False
+    """
+    Whether the step edits files.
+    """
+
+    test: bool = False
+    """
+    Whether the step is skipped with `--no-test`.
+    """
+
+    inputs: tuple[Path, ...] = ()
+    """
+    Files the step reads which earlier steps write to the project, copied into the
+    sandbox in check mode.
+    """
