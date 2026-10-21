@@ -45,7 +45,7 @@ doc = [
 format = [
   "autoflake>=2.3.1,<3",
   "black>=25.1.0,<26",
-  "docfmt>=0.2.0,<0.3.0",
+  "docfmt>=0.3.0,<0.4.0",
   "isort>=6.0.1,<7"
 ]
 test = [
