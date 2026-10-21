@@ -112,7 +112,7 @@ def _in_ci() -> bool:
 
 def _populate_sandbox(config: ProjectConfig, root: Path, sandbox: Path):
     """
-    Copy the files which preflight steps may edit into the sandbox: root files, format
+    Copy the files which preflight steps may edit into the sandbox: root files, code
     paths, the package, badges, and generated skills.
     """
     for path in root.iterdir():
@@ -124,7 +124,7 @@ def _populate_sandbox(config: ProjectConfig, root: Path, sandbox: Path):
         skills_dirs.add(skill.skills_dir)
 
     dirs = [
-        *(Path(p) for p in config.format_paths),
+        *(Path(p) for p in config.code_paths),
         config.package_path,
         _paths.BADGES_PATH,
         *(Path(d) / SKILL_NAME for d in skills_dirs),
@@ -222,6 +222,16 @@ class TaskFactory:
 
         return task_sync
 
+    def _code_paths(self) -> list[str]:
+        """
+        Python code to format and analyze: top-level `*.py` files plus the configured
+        code directories which exist in the project.
+        """
+        root = self._root
+        return [str(p) for p in sorted(root.glob("*.py"))] + [
+            path for path in self._config.code_paths if (root / path).is_dir()
+        ]
+
     def create_format_task(self) -> TaskCreator:
         """
         Create `format` task which runs the configured formatters.
@@ -231,9 +241,7 @@ class TaskFactory:
 
         def task_format() -> Task:
             # aggregate files to format
-            py_paths = [str(p) for p in sorted(root.glob("*.py"))] + [
-                path for path in config.format_paths if (root / path).is_dir()
-            ]
+            py_paths = self._code_paths()
             toml_paths = [str(p) for p in sorted(root.glob("*.toml"))]
 
             actions = [
@@ -459,7 +467,7 @@ class TaskFactory:
         Create `analysis` task which runs static analysis tools.
         """
         analysis = self._require(self._config.tools.analysis, "tools.analysis")
-        package_path = self._config.package_path
+        code_paths = self._code_paths()
 
         commands: list[list[str]] = []
 
@@ -471,12 +479,12 @@ class TaskFactory:
                     str(_paths.MYPY_HTML_PATH),
                     "--cobertura-xml-report",
                     str(_paths.MYPY_XML_PATH),
-                    str(package_path),
+                    *code_paths,
                 ]
             )
 
         if analysis.pyright:
-            commands.append(["pyright", str(package_path)])
+            commands.append(["pyright", *code_paths])
 
         def task_analysis() -> Task:
             return Task(

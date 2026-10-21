@@ -213,10 +213,11 @@ class ProjectConfig:
     Directory containing packages, relative to the project root.
     """
 
-    format_paths: Sequence[str] = ("src", "test", "doc", "examples")
+    code_paths: Sequence[str] = ("src", "test", "doc", "examples")
     """
-    Directories to format (those which exist), in addition to `*.py` and `*.toml` files
-    at the project root.
+    Directories containing Python code (those which exist), relative to the project
+    root. These are formatted (in addition to `*.py` and `*.toml` files at the project
+    root) and checked by static analysis.
     """
 
     tools: ToolsConfig = field(default_factory=ToolsConfig)

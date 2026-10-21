@@ -117,16 +117,16 @@ def test_opt_in_tasks(
     task = TaskFactory(config=enabled).create_analysis_task()()
     cmds = _run_task(task, monkeypatch)
     assert [cmd[0] for cmd in cmds] == ["mypy", "pyright"]
-    assert [cmd[-1] for cmd in cmds] == ["src/fixture_pkg", "src/fixture_pkg"]
+    assert cmds[0][-2:] == ["src", "test"]
+    assert cmds[1][-2:] == ["src", "test"]
+    # top-level files are included
+    assert any(arg.endswith("pyprojconf.py") for arg in cmds[1])
 
     # override packages location
     flat = replace(enabled, packages_dir=".")
     factory = TaskFactory(config=flat)
     task = factory.create_init_task()()
     assert _py_action(task.actions[0]).args[0][:2] == ["mkinit", "fixture_pkg"]
-    task = factory.create_analysis_task()()
-    cmds = _run_task(task, monkeypatch)
-    assert [cmd[-1] for cmd in cmds] == ["fixture_pkg", "fixture_pkg"]
 
 
 def test_preflight_task(
