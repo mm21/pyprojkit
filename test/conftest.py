@@ -1,3 +1,4 @@
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -41,6 +42,16 @@ from pyprojkit import ProjectConfig, PythonVersions, RequiresPython, create_kitc
 
 config = ProjectConfig(package="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)), tools=replace(create_kitchen_sink_tools(), analysis=None))
 """
+
+
+@pytest.fixture(autouse=True)
+def lock_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """
+    Record lock commands instead of running them.
+    """
+    calls: list[list[str]] = []
+    monkeypatch.setattr(sys.modules["pyprojkit.sync"], "run", lambda cmd, *a, **k: calls.append(cmd))
+    return calls
 
 
 @pytest.fixture

@@ -405,3 +405,25 @@ def _get_table(doc: tomlkit.TOMLDocument, path: str) -> Table:
         item = item[key]
     assert isinstance(item, Table)
     return item
+
+
+def test_sync_locks(project: Path, config: ProjectConfig, lock_calls: list[list[str]]):
+    sync(config, project)
+    assert lock_calls == [["uv", "lock"]]
+
+    # locks even when already in sync (manual pyproject.toml edits)
+    lock_calls.clear()
+    sync(config, project)
+    assert lock_calls == [["uv", "lock"]]
+
+    lock_calls.clear()
+
+    # check mode never locks
+    (project / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+    sync(config, project, check=True)
+    assert lock_calls == []
+
+    # poetry
+    poetry = replace(config, tools=replace(config.tools, workflow_tool="poetry"))
+    sync(poetry, project)
+    assert lock_calls == [["poetry", "lock"]]

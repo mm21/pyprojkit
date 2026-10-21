@@ -19,6 +19,10 @@ Managed content:
   `<skills_dir>/pyprojkit-python/SKILL.md`, overwritten on every sync and removed when
   dropped from the configuration
 
+On every non-check sync, the lock file is refreshed via the configured workflow tool
+(`uv lock` or `poetry lock`), so manual edits to `pyproject.toml` are picked up too.
+Skipped when no workflow tool is configured.
+
 Everything else (dependencies, build-system, urls, unmanaged fields and tables, etc.) is
 preserved. Output is normalized with toml-sort (as a library, using the same settings as
 the managed `[tool.tomlsort]` table), so a subsequent `toml-sort` run in the format task
@@ -30,6 +34,7 @@ bookkeeping table and "managed by pyprojkit" comments) are migrated in one sync.
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import re
 from pathlib import Path
@@ -42,6 +47,7 @@ from tomlkit.items import AoT, Null, Table
 from .config.base import ConfigError
 from .config.project import ProjectConfig, SkillConfig
 from .config.tools import TomlSortConfig
+from ._run import run
 from .skill import SKILL_NAME, render_skill
 from .versions import PythonVersionSet
 
@@ -165,7 +171,19 @@ def sync(
             skill_path.parent.mkdir(parents=True, exist_ok=True)
             skill_path.write_text(desired)
 
+    if not check:
+        _lock(config, root_path)
+
     return in_sync if check else True
+
+
+def _lock(config: ProjectConfig, root: Path):
+    """
+    Refresh the lock file using the configured workflow tool, if any.
+    """
+    if tool := config.tools.workflow_tool:
+        with contextlib.chdir(root):
+            run([tool, "lock"])
 
 
 def _print_diff(name: str, old: str, new: str):
