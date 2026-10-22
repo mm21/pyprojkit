@@ -3,7 +3,7 @@ Configurations for all supported tools.
 
 Formatters are tools which additionally run as part of the `format` task. Every field
 defaults to `None` (unset); each tool's opinionated settings are provided by its
-`create_kitchen_sink()`.
+`create_recommended()`.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ class AutoflakeConfig(BaseFormatterConfig):
     )
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
             in_place=True,
             recursive=True,
@@ -70,7 +70,7 @@ class IsortConfig(BaseFormatterConfig):
     quiet: bool | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(profile="black", quiet=True)
 
     def command(self, py_paths: list[str], toml_paths: list[str]) -> list[str]:
@@ -84,7 +84,7 @@ class BlackConfig(BaseFormatterConfig):
     quiet: bool | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(quiet=True)
 
     def extra_toml(self, project: ProjectConfig) -> dict[str, Any]:
@@ -114,7 +114,7 @@ class DocfmtConfig(BaseFormatterConfig):
     force_reflow: bool | None = field(default=None, metadata={"toml": "force-reflow"})
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
             in_place=True, recursive=True, summary_on_own_line=True, force_reflow=True
         )
@@ -135,7 +135,7 @@ class TomlSortConfig(BaseFormatterConfig):
     spaces_before_inline_comment: int | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
             sort_first=("project", "dependency-groups", "build-system"),
             sort_table_keys=True,
@@ -158,7 +158,7 @@ class PytestConfig(BaseToolConfig):
     testpaths: str | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
             addopts="--import-mode=importlib -s -v -rA",
             cache_dir=str(_paths.PYTEST_CACHE_PATH),
@@ -173,7 +173,7 @@ class CoverageRunConfig(BaseToolConfig):
     data_file: str | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(data_file=str(_paths.COVERAGE_DATA_PATH))
 
 
@@ -184,7 +184,7 @@ class CoverageReportConfig(BaseToolConfig):
     exclude_lines: tuple[str, ...] | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(exclude_lines=("if TYPE_CHECKING:", "\\.\\.\\.$"))
 
 
@@ -196,7 +196,7 @@ class DoitConfig(BaseToolConfig):
     verbosity: int | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(dep_file=str(_paths.DOIT_DB_PATH), verbosity=2)
 
 
@@ -208,7 +208,7 @@ class NoxConfig(BaseToolConfig):
     envdir: str | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(default_venv_backend="uv", envdir=str(_paths.NOX_ENVDIR_PATH))
 
 
@@ -220,7 +220,7 @@ class MypyConfig(BaseToolConfig):
     check_untyped_defs: bool | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(ignore_missing_imports=True, check_untyped_defs=True)
 
     def extra_toml(self, project: ProjectConfig) -> dict[str, Any]:
@@ -236,7 +236,7 @@ class PyrightConfig(BaseToolConfig):
     table_path: ClassVar[str] = "tool.pyright"
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls()
 
     def extra_toml(self, project: ProjectConfig) -> dict[str, Any]:

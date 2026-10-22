@@ -52,14 +52,14 @@ class FormattingConfig(BaseConfig):
     """
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
             formatters=(
-                AutoflakeConfig.create_kitchen_sink(),
-                IsortConfig.create_kitchen_sink(),
-                DocfmtConfig.create_kitchen_sink(),
-                BlackConfig.create_kitchen_sink(),
-                TomlSortConfig.create_kitchen_sink(),
+                AutoflakeConfig.create_recommended(),
+                IsortConfig.create_recommended(),
+                DocfmtConfig.create_recommended(),
+                BlackConfig.create_recommended(),
+                TomlSortConfig.create_recommended(),
             )
         )
 
@@ -75,11 +75,11 @@ class TestConfig(BaseConfig):
     coverage_report: CoverageReportConfig = field(default_factory=CoverageReportConfig)
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
-            pytest=PytestConfig.create_kitchen_sink(),
-            coverage_run=CoverageRunConfig.create_kitchen_sink(),
-            coverage_report=CoverageReportConfig.create_kitchen_sink(),
+            pytest=PytestConfig.create_recommended(),
+            coverage_run=CoverageRunConfig.create_recommended(),
+            coverage_report=CoverageReportConfig.create_recommended(),
         )
 
 
@@ -95,7 +95,7 @@ class MkinitConfig(BaseConfig):
     """
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
             args=("--recursive", "--nomods", "--relative", "-i", "--source-order")
         )
@@ -119,7 +119,7 @@ class SphinxConfig(BaseConfig):
     """
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls()
 
 
@@ -140,12 +140,12 @@ class DocConfig(BaseConfig):
     """
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         """
         Enables mkinit; sphinx is left disabled since it needs project-specific
         settings.
         """
-        return cls(mkinit=MkinitConfig.create_kitchen_sink())
+        return cls(mkinit=MkinitConfig.create_recommended())
 
 
 @dataclass(kw_only=True)
@@ -158,10 +158,10 @@ class AnalysisConfig(BaseConfig):
     pyright: PyrightConfig | None = None
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(
-            mypy=MypyConfig.create_kitchen_sink(),
-            pyright=PyrightConfig.create_kitchen_sink(),
+            mypy=MypyConfig.create_recommended(),
+            pyright=PyrightConfig.create_recommended(),
         )
 
 
@@ -178,7 +178,7 @@ class PublishConfig(BaseConfig):
     """
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls(out_dir=str(_paths.UV_PATH))
 
 
@@ -198,7 +198,7 @@ class SkillConfig(BaseConfig):
     """
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         return cls()
 
 
@@ -208,8 +208,8 @@ class ToolsConfig(BaseConfig):
     Development tool configurations, grouped by broad tool category.
 
     Every category is opt-in: `None` (the default) means the tool is neither managed nor
-    given a task. For a pre-canned set of everything, see `create_kitchen_sink()` (also
-    available as `create_kitchen_sink_tools()`); to share a configuration across
+    given a task. For a pre-canned set of everything, see `create_recommended()` (also
+    available as `create_recommended_tools()`); to share a configuration across
     projects, define your own factory function or global.
     """
 
@@ -233,7 +233,7 @@ class ToolsConfig(BaseConfig):
     """
 
     @classmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         """
         Enables every tool category, each with its opinionated settings: uv as the
         workflow tool, formatting, testing, doit, nox, mkinit, static analysis,
@@ -242,14 +242,14 @@ class ToolsConfig(BaseConfig):
         """
         return cls(
             workflow_tool="uv",
-            formatting=FormattingConfig.create_kitchen_sink(),
-            test=TestConfig.create_kitchen_sink(),
-            doit=DoitConfig.create_kitchen_sink(),
-            nox=NoxConfig.create_kitchen_sink(),
-            doc=DocConfig.create_kitchen_sink(),
-            analysis=AnalysisConfig.create_kitchen_sink(),
-            publish=PublishConfig.create_kitchen_sink(),
-            skill=SkillConfig.create_kitchen_sink(),
+            formatting=FormattingConfig.create_recommended(),
+            test=TestConfig.create_recommended(),
+            doit=DoitConfig.create_recommended(),
+            nox=NoxConfig.create_recommended(),
+            doc=DocConfig.create_recommended(),
+            analysis=AnalysisConfig.create_recommended(),
+            publish=PublishConfig.create_recommended(),
+            skill=SkillConfig.create_recommended(),
         )
 
 

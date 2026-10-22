@@ -18,7 +18,7 @@ from pyprojkit import (
     RequiresPython,
     TomlSortConfig,
     ToolsConfig,
-    create_kitchen_sink_tools,
+    create_recommended_tools,
 )
 
 
@@ -52,8 +52,8 @@ def test_default_minimal():
     assert PublishConfig().out_dir is None
 
 
-def test_kitchen_sink():
-    tools = create_kitchen_sink_tools()
+def test_recommended():
+    tools = create_recommended_tools()
     assert tools.formatting is not None
     names = [type(f).__name__ for f in tools.formatting.formatters]
     assert names == [
@@ -71,13 +71,13 @@ def test_kitchen_sink():
 
 
 def test_custom_profile():
-    tools = replace(create_kitchen_sink_tools(), analysis=None)
+    tools = replace(create_recommended_tools(), analysis=None)
     assert tools.analysis is None
     assert tools.test is not None
 
 
 def test_to_toml_key_mapping(config: ProjectConfig):
-    autoflake = AutoflakeConfig.create_kitchen_sink().to_toml(config)
+    autoflake = AutoflakeConfig.create_recommended().to_toml(config)
     assert autoflake == {
         "in_place": True,
         "recursive": True,
@@ -85,10 +85,10 @@ def test_to_toml_key_mapping(config: ProjectConfig):
         "remove-unused-variables": True,
     }
 
-    black = BlackConfig.create_kitchen_sink().to_toml(config)
+    black = BlackConfig.create_recommended().to_toml(config)
     assert black == {"quiet": True, "target-version": ["py312", "py313"]}
 
-    tomlsort = TomlSortConfig.create_kitchen_sink().to_toml(config)
+    tomlsort = TomlSortConfig.create_recommended().to_toml(config)
     assert tomlsort == {
         "sort_first": ["project", "dependency-groups", "build-system"],
         "sort_table_keys": True,
@@ -104,7 +104,7 @@ def test_to_toml_none_omitted(config: ProjectConfig):
 def test_tool_defaults_empty(config: ProjectConfig):
     assert IsortConfig().to_toml(config) == {}
     assert BlackConfig().to_toml(config) == {"target-version": ["py312", "py313"]}
-    tools = create_kitchen_sink_tools()
+    tools = create_recommended_tools()
     assert tools.test is not None and tools.test.pytest.to_toml(config)
 
 

@@ -44,7 +44,7 @@ from .project import (
     SkillConfig,
 )
 from .profiles import (
-    create_kitchen_sink_tools,
+    create_recommended_tools,
 )
 
 __all__ = [
@@ -74,6 +74,6 @@ __all__ = [
     "AnalysisConfig",
     "PublishConfig",
     "SkillConfig",
-    "create_kitchen_sink_tools",
+    "create_recommended_tools",
 ]
 # </AUTOGEN_INIT>

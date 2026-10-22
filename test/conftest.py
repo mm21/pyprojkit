@@ -8,7 +8,7 @@ from pyprojkit import (
     ProjectConfig,
     PythonVersions,
     RequiresPython,
-    create_kitchen_sink_tools,
+    create_recommended_tools,
 )
 
 PYPROJECT = """\
@@ -38,9 +38,9 @@ keep = true
 PYPROJCONF = """\
 from dataclasses import replace
 
-from pyprojkit import ProjectConfig, PythonVersions, RequiresPython, create_kitchen_sink_tools
+from pyprojkit import ProjectConfig, PythonVersions, RequiresPython, create_recommended_tools
 
-config = ProjectConfig(package="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)), tools=replace(create_kitchen_sink_tools(), analysis=None))
+config = ProjectConfig(package="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)), tools=replace(create_recommended_tools(), analysis=None))
 """
 
 
@@ -62,7 +62,7 @@ def config() -> ProjectConfig:
         package="fixture_pkg",
         requires_python=RequiresPython((3, 12)),
         pinned_python=PythonVersions(3, (12, 13)),
-        tools=replace(create_kitchen_sink_tools(), analysis=None),
+        tools=replace(create_recommended_tools(), analysis=None),
     )
 
 

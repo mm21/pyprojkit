@@ -30,7 +30,7 @@ def create_mycompany_tools() -> ToolsConfig:
     )
 ```
 
-Alternatively, start from `create_kitchen_sink_tools()` and override parts of it with
+Alternatively, start from `create_recommended_tools()` and override parts of it with
 `dataclasses.replace()`.
 """
 
@@ -39,13 +39,14 @@ from __future__ import annotations
 from .project import ToolsConfig
 
 __all__ = [
-    "create_kitchen_sink_tools",
+    "create_recommended_tools",
 ]
 
 
-def create_kitchen_sink_tools() -> ToolsConfig:
+def create_recommended_tools() -> ToolsConfig:
     """
-    Get a new instance of the configuration which enables every tool; equivalent to
-    `ToolsConfig.create_kitchen_sink()`.
+    Get a new instance of the recommended configuration: every tool which doesn't need
+    project-specific settings, with opinionated settings; equivalent to
+    `ToolsConfig.create_recommended()`.
     """
-    return ToolsConfig.create_kitchen_sink()
+    return ToolsConfig.create_recommended()

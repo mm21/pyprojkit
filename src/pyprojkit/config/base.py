@@ -31,16 +31,15 @@ class BaseConfig(ABC):
     individual tools' `pyproject.toml` tables (e.g. `PytestConfig`).
 
     A default-constructed config is empty: every setting is unset and every optional
-    sub-config is disabled. Opinionated settings are provided by
-    `create_kitchen_sink()`.
+    sub-config is disabled. Opinionated settings are provided by `create_recommended()`.
     """
 
     @classmethod
     @abstractmethod
-    def create_kitchen_sink(cls) -> Self:
+    def create_recommended(cls) -> Self:
         """
         Get a new instance with opinionated settings, as used by
-        `create_kitchen_sink_tools()`.
+        `create_recommended_tools()`.
         """
         ...
 

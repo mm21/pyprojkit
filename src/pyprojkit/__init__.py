@@ -44,7 +44,7 @@ from .config import (
     AnalysisConfig,
     PublishConfig,
     SkillConfig,
-    create_kitchen_sink_tools,
+    create_recommended_tools,
 )
 from .versions import (
     DEFAULT_PATCH_VERSIONS,
@@ -98,7 +98,7 @@ __all__ = [
     "AnalysisConfig",
     "PublishConfig",
     "SkillConfig",
-    "create_kitchen_sink_tools",
+    "create_recommended_tools",
     "DEFAULT_PATCH_VERSIONS",
     "PythonVersions",
     "PythonVersionSet",

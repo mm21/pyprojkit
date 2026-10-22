@@ -235,8 +235,8 @@ def test_purge_dropped_tool(project: Path, config: ProjectConfig):
             config.tools,
             formatting=FormattingConfig(
                 formatters=(
-                    BlackConfig.create_kitchen_sink(),
-                    TomlSortConfig.create_kitchen_sink(),
+                    BlackConfig.create_recommended(),
+                    TomlSortConfig.create_recommended(),
                 )
             ),
         ),

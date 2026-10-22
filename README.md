@@ -140,7 +140,7 @@ Tool configurations are grouped by category under `ToolsConfig`. Every category 
 - `publish`: build/publish output directory
 - `skill`: a `pyprojkit-python` [agent skill](https://agentskills.io) generated from the configuration
 
-`create_kitchen_sink_tools()` returns a `ToolsConfig` with everything enabled (except sphinx, which needs project-specific settings). Customize it with `dataclasses.replace`:
+`create_recommended_tools()` returns a `ToolsConfig` with everything enabled (except sphinx, which needs project-specific settings). Customize it with `dataclasses.replace`:
 
 ```python
 from dataclasses import replace
@@ -152,7 +152,7 @@ from pyprojkit import (
     PythonVersions,
     RequiresPython,
     SphinxConfig,
-    create_kitchen_sink_tools,
+    create_recommended_tools,
 )
 
 config = ProjectConfig(
@@ -160,7 +160,7 @@ config = ProjectConfig(
     requires_python=RequiresPython((3, 12)),
     pinned_python=PythonVersions(3, (12, 14)),
     tools=replace(
-        create_kitchen_sink_tools(),
+        create_recommended_tools(),
         doc=DocConfig(sphinx=SphinxConfig(copy_env_var="MY_PACKAGE_DOCS_DIR")),
         analysis=None,
     ),
@@ -171,7 +171,7 @@ To tweak a managed value, replace it in the tool's config:
 
 ```python
 tools=replace(
-    create_kitchen_sink_tools(),
+    create_recommended_tools(),
     test=TestConfig(pytest=PytestConfig(addopts="-x")),
 )
 ```
@@ -291,11 +291,11 @@ There is no profile registry: a shared configuration is just a function or globa
 # in your shared module, e.g. mycompany_config.py
 from dataclasses import replace
 
-from pyprojkit import AnalysisConfig, ToolsConfig, create_kitchen_sink_tools
+from pyprojkit import AnalysisConfig, ToolsConfig, create_recommended_tools
 
 
 def create_mycompany_tools() -> ToolsConfig:
-    return replace(create_kitchen_sink_tools(), analysis=AnalysisConfig())
+    return replace(create_recommended_tools(), analysis=AnalysisConfig())
 ```
 
 ```python

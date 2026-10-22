@@ -108,14 +108,14 @@ def test_opt_in_tasks(
     with pytest.raises(ConfigError, match="tools.doc.sphinx"):
         factory.create_doc_task()
 
-    # mkinit enabled by kitchen sink
+    # mkinit enabled by recommended config
     task = factory.create_init_task()()
     assert _py_action(task.actions[0]).args[0][:2] == ["mkinit", "src/fixture_pkg"]
 
     # enable analysis
     enabled = replace(
         config,
-        tools=replace(config.tools, analysis=AnalysisConfig.create_kitchen_sink()),
+        tools=replace(config.tools, analysis=AnalysisConfig.create_recommended()),
     )
     task = TaskFactory(config=enabled).create_analysis_task()()
     cmds = _run_task(task, monkeypatch)
@@ -318,8 +318,8 @@ def _enable_all(config: ProjectConfig) -> ProjectConfig:
         config,
         tools=replace(
             config.tools,
-            analysis=AnalysisConfig.create_kitchen_sink(),
-            nox=NoxConfig.create_kitchen_sink(),
+            analysis=AnalysisConfig.create_recommended(),
+            nox=NoxConfig.create_recommended(),
         ),
     )
 
