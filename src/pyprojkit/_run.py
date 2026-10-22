@@ -21,7 +21,7 @@ def run(cmd: list[str], expect_rc: int | set[int] = 0):
     env["PATH"] = os.pathsep.join(
         [str(Path(sys.executable).parent), env.get("PATH", "")]
     )
-    print(f"=== Running: {cmd[0]}")
+    print(f"=== Running: {cmd}")
     rc = subprocess.call(cmd, env=env)
     if rc not in expect_rcs:
         sys.exit(f"{cmd[0]} failed: rc={rc}, cmd={cmd}")
