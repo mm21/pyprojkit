@@ -216,12 +216,11 @@ class NoxConfig(BaseToolConfig):
 class MypyConfig(BaseToolConfig):
     table_path: ClassVar[str] = "tool.mypy"
 
-    ignore_missing_imports: bool | None = None
     check_untyped_defs: bool | None = None
 
     @classmethod
     def create_recommended(cls) -> Self:
-        return cls(ignore_missing_imports=True, check_untyped_defs=True)
+        return cls(check_untyped_defs=True)
 
     def extra_toml(self, project: ProjectConfig) -> dict[str, Any]:
         versions = project.pinned_versions
