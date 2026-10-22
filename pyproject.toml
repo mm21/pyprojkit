@@ -110,6 +110,10 @@ quiet = true  # pyprojkit-managed
 check_untyped_defs = true  # pyprojkit-managed
 python_version = "3.12"  # pyprojkit-managed
 
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = ["doit", "doit.*"]
+
 [tool.nox]
 default_venv_backend = "uv"  # pyprojkit-managed
 envdir = "__cache__/nox"  # pyprojkit-managed
