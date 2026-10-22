@@ -3,11 +3,16 @@ from dataclasses import fields, replace
 import pytest
 
 from pyprojkit import (
+    AnalysisConfig,
     AutoflakeConfig,
     BlackConfig,
+    DocConfig,
     DocfmtConfig,
+    FormattingConfig,
     IsortConfig,
+    MkinitConfig,
     ProjectConfig,
+    PublishConfig,
     PythonVersions,
     PythonVersionSet,
     RequiresPython,
@@ -40,6 +45,11 @@ def test_pins_override_and_missing():
 def test_default_minimal():
     tools = ToolsConfig()
     assert all(getattr(tools, f.name) is None for f in fields(tools))
+    assert AnalysisConfig() == AnalysisConfig(mypy=None, pyright=None)
+    assert DocConfig() == DocConfig(mkinit=None, sphinx=None)
+    assert FormattingConfig().formatters == ()
+    assert MkinitConfig().args == ()
+    assert PublishConfig().out_dir is None
 
 
 def test_kitchen_sink():
@@ -67,7 +77,7 @@ def test_custom_profile():
 
 
 def test_to_toml_key_mapping(config: ProjectConfig):
-    autoflake = AutoflakeConfig().to_toml(config)
+    autoflake = AutoflakeConfig.create_kitchen_sink().to_toml(config)
     assert autoflake == {
         "in_place": True,
         "recursive": True,
@@ -75,10 +85,10 @@ def test_to_toml_key_mapping(config: ProjectConfig):
         "remove-unused-variables": True,
     }
 
-    black = BlackConfig().to_toml(config)
+    black = BlackConfig.create_kitchen_sink().to_toml(config)
     assert black == {"quiet": True, "target-version": ["py312", "py313"]}
 
-    tomlsort = TomlSortConfig().to_toml(config)
+    tomlsort = TomlSortConfig.create_kitchen_sink().to_toml(config)
     assert tomlsort == {
         "sort_first": ["project", "dependency-groups", "build-system"],
         "sort_table_keys": True,
@@ -87,8 +97,15 @@ def test_to_toml_key_mapping(config: ProjectConfig):
 
 
 def test_to_toml_none_omitted(config: ProjectConfig):
-    isort = IsortConfig(profile=None)
+    isort = IsortConfig(quiet=True)
     assert isort.to_toml(config) == {"quiet": True}
+
+
+def test_tool_defaults_empty(config: ProjectConfig):
+    assert IsortConfig().to_toml(config) == {}
+    assert BlackConfig().to_toml(config) == {"target-version": ["py312", "py313"]}
+    tools = create_kitchen_sink_tools()
+    assert tools.test is not None and tools.test.pytest.to_toml(config)
 
 
 def test_formatter_commands():

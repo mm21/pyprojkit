@@ -2,40 +2,41 @@
 Built-in tool configurations.
 
 Configurations are plain `ToolsConfig` values: define your own factory function or
-global in a module shared across projects, optionally building on
-`create_kitchen_sink_tools()`:
+global in a module shared across projects, enabling just the tools you want:
 
 ```python
-from dataclasses import replace
-
-from pyprojkit import AnalysisConfig, ToolsConfig, create_kitchen_sink_tools
+from pyprojkit import (
+    AnalysisConfig,
+    BlackConfig,
+    FormattingConfig,
+    IsortConfig,
+    PyrightConfig,
+    PytestConfig,
+    TestConfig,
+    ToolsConfig,
+)
 
 
 def create_mycompany_tools() -> ToolsConfig:
-    return replace(create_kitchen_sink_tools(), analysis=AnalysisConfig())
+    return ToolsConfig(
+        formatting=FormattingConfig(
+            formatters=(
+                IsortConfig(profile="black"),
+                BlackConfig(),
+            )
+        ),
+        test=TestConfig(pytest=PytestConfig(testpaths="tests")),
+        analysis=AnalysisConfig(pyright=PyrightConfig()),
+    )
 ```
+
+Alternatively, start from `create_kitchen_sink_tools()` and override parts of it with
+`dataclasses.replace()`.
 """
 
 from __future__ import annotations
 
-from .project import (
-    AnalysisConfig,
-    DocConfig,
-    FormattingConfig,
-    PublishConfig,
-    SkillConfig,
-    TestConfig,
-    ToolsConfig,
-)
-from .tools import (
-    AutoflakeConfig,
-    BlackConfig,
-    DocfmtConfig,
-    DoitConfig,
-    IsortConfig,
-    NoxConfig,
-    TomlSortConfig,
-)
+from .project import ToolsConfig
 
 __all__ = [
     "create_kitchen_sink_tools",
@@ -44,26 +45,7 @@ __all__ = [
 
 def create_kitchen_sink_tools() -> ToolsConfig:
     """
-    Get a new instance of the configuration which enables every tool: uv as the workflow
-    tool, formatting, testing, doit, nox, mkinit, static analysis, publishing and the
-    agent skill. Sphinx is left disabled since it needs project-specific settings.
+    Get a new instance of the configuration which enables every tool; equivalent to
+    `ToolsConfig.create_kitchen_sink()`.
     """
-    return ToolsConfig(
-        workflow_tool="uv",
-        formatting=FormattingConfig(
-            formatters=(
-                AutoflakeConfig(),
-                IsortConfig(),
-                DocfmtConfig(),
-                BlackConfig(),
-                TomlSortConfig(),
-            )
-        ),
-        test=TestConfig(),
-        doit=DoitConfig(),
-        nox=NoxConfig(),
-        doc=DocConfig(),
-        analysis=AnalysisConfig(),
-        publish=PublishConfig(),
-        skill=SkillConfig(),
-    )
+    return ToolsConfig.create_kitchen_sink()

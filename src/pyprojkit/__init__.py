@@ -19,6 +19,7 @@ __submodules__ = [
 # <AUTOGEN_INIT>
 from .config import (
     ConfigError,
+    BaseConfig,
     BaseToolConfig,
     BaseFormatterConfig,
     AutoflakeConfig,
@@ -32,6 +33,7 @@ from .config import (
     DoitConfig,
     NoxConfig,
     MypyConfig,
+    PyrightConfig,
     ProjectConfig,
     ToolsConfig,
     FormattingConfig,
@@ -71,6 +73,7 @@ from .sessions import (
 __all__ = [
     "sync",
     "ConfigError",
+    "BaseConfig",
     "BaseToolConfig",
     "BaseFormatterConfig",
     "AutoflakeConfig",
@@ -84,6 +87,7 @@ __all__ = [
     "DoitConfig",
     "NoxConfig",
     "MypyConfig",
+    "PyrightConfig",
     "ProjectConfig",
     "ToolsConfig",
     "FormattingConfig",

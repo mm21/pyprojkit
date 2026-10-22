@@ -45,7 +45,7 @@ from tomlkit import TOMLDocument
 from tomlkit.items import AoT, Null, Table
 
 from ._run import run
-from .config.base import ConfigError
+from .config.base import BaseToolConfig, ConfigError
 from .config.project import ProjectConfig, SkillConfig
 from .config.tools import TomlSortConfig
 from .skill import SKILL_NAME, render_skill
@@ -70,25 +70,21 @@ def compute_managed_fields(config: ProjectConfig) -> dict[str, dict[str, Any]]:
     """
     Compute all managed fields, keyed by dotted table path then key.
     """
-    tables: dict[str, dict[str, Any]] = {}
+    tool_configs: list[BaseToolConfig] = []
     tools = config.tools
 
     if tools.formatting:
-        for formatter in tools.formatting.formatters:
-            tables[formatter.table_path] = formatter.to_toml(config)
+        tool_configs += tools.formatting.formatters
 
     if test := tools.test:
-        for test_tool in (test.pytest, test.coverage_run, test.coverage_report):
-            tables[test_tool.table_path] = test_tool.to_toml(config)
+        tool_configs += [test.pytest, test.coverage_run, test.coverage_report]
 
-    for runner in (tools.doit, tools.nox):
-        if runner:
-            tables[runner.table_path] = runner.to_toml(config)
+    tool_configs += [t for t in (tools.doit, tools.nox) if t]
 
-    if (analysis := tools.analysis) and analysis.mypy:
-        tables[analysis.mypy.table_path] = analysis.mypy.to_toml(config)
+    if analysis := tools.analysis:
+        tool_configs += [t for t in (analysis.mypy, analysis.pyright) if t]
 
-    return tables
+    return {t.table_path: t.to_toml(config) for t in tool_configs}
 
 
 def render(config: ProjectConfig, text: str) -> str:

@@ -6,18 +6,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Literal, Self, Sequence
 
 from .. import _paths
 from ..versions import PythonVersions, PythonVersionSet, RequiresPython
-from .base import BaseFormatterConfig
+from .base import BaseConfig, BaseFormatterConfig
 from .tools import (
+    AutoflakeConfig,
+    BlackConfig,
     CoverageReportConfig,
     CoverageRunConfig,
+    DocfmtConfig,
     DoitConfig,
+    IsortConfig,
     MypyConfig,
     NoxConfig,
+    PyrightConfig,
     PytestConfig,
+    TomlSortConfig,
 )
 
 __all__ = [
@@ -35,19 +41,31 @@ __all__ = [
 
 
 @dataclass(kw_only=True)
-class FormattingConfig:
+class FormattingConfig(BaseConfig):
     """
     Formatting configuration: which formatters run (in order) and their settings.
     """
 
-    formatters: tuple[BaseFormatterConfig, ...]
+    formatters: tuple[BaseFormatterConfig, ...] = ()
     """
     Formatters in run order.
     """
 
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        return cls(
+            formatters=(
+                AutoflakeConfig.create_kitchen_sink(),
+                IsortConfig.create_kitchen_sink(),
+                DocfmtConfig.create_kitchen_sink(),
+                BlackConfig.create_kitchen_sink(),
+                TomlSortConfig.create_kitchen_sink(),
+            )
+        )
+
 
 @dataclass(kw_only=True)
-class TestConfig:
+class TestConfig(BaseConfig):
     """
     Testing configuration (pytest + coverage).
     """
@@ -56,27 +74,35 @@ class TestConfig:
     coverage_run: CoverageRunConfig = field(default_factory=CoverageRunConfig)
     coverage_report: CoverageReportConfig = field(default_factory=CoverageReportConfig)
 
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        return cls(
+            pytest=PytestConfig.create_kitchen_sink(),
+            coverage_run=CoverageRunConfig.create_kitchen_sink(),
+            coverage_report=CoverageReportConfig.create_kitchen_sink(),
+        )
+
 
 @dataclass(kw_only=True)
-class MkinitConfig:
+class MkinitConfig(BaseConfig):
     """
     Configuration for generating `__init__.py` files using mkinit.
     """
 
-    args: tuple[str, ...] = (
-        "--recursive",
-        "--nomods",
-        "--relative",
-        "-i",
-        "--source-order",
-    )
+    args: tuple[str, ...] = ()
     """
     Arguments passed to mkinit.
     """
 
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        return cls(
+            args=("--recursive", "--nomods", "--relative", "-i", "--source-order")
+        )
+
 
 @dataclass(kw_only=True)
-class SphinxConfig:
+class SphinxConfig(BaseConfig):
     """
     Configuration for building documentation using sphinx.
     """
@@ -92,49 +118,72 @@ class SphinxConfig:
     built documentation when the doc task is run with `--copy`.
     """
 
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        return cls()
+
 
 @dataclass(kw_only=True)
-class DocConfig:
+class DocConfig(BaseConfig):
     """
     Documentation tool configurations.
     """
 
-    mkinit: MkinitConfig | None = field(default_factory=MkinitConfig)
+    mkinit: MkinitConfig | None = None
     """
-    Enables the `init` task; enabled by default.
+    Enables the `init` task.
     """
 
     sphinx: SphinxConfig | None = None
     """
-    Enables the `doc` task; opt-in.
+    Enables the `doc` task.
     """
+
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        """
+        Enables mkinit; sphinx is left disabled since it needs project-specific
+        settings.
+        """
+        return cls(mkinit=MkinitConfig.create_kitchen_sink())
 
 
 @dataclass(kw_only=True)
-class AnalysisConfig:
+class AnalysisConfig(BaseConfig):
     """
     Static analysis configuration.
     """
 
-    mypy: MypyConfig | None = field(default_factory=MypyConfig)
-    pyright: bool = True
+    mypy: MypyConfig | None = None
+    pyright: PyrightConfig | None = None
+
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        return cls(
+            mypy=MypyConfig.create_kitchen_sink(),
+            pyright=PyrightConfig.create_kitchen_sink(),
+        )
 
 
 @dataclass(kw_only=True)
-class PublishConfig:
+class PublishConfig(BaseConfig):
     """
     Configuration for building and publishing via uv.
     """
 
-    out_dir: str = str(_paths.UV_PATH)
+    out_dir: str | None = None
     """
-    Directory for build artifacts; cleaned before each build so stale artifacts are
-    never published.
+    Directory for build artifacts, defaulting to uv's `dist`; cleaned before each build
+    so stale artifacts are never published.
     """
+
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        return cls(out_dir=str(_paths.UV_PATH))
 
 
 @dataclass(kw_only=True)
-class SkillConfig:
+class SkillConfig(BaseConfig):
     """
     Agent skill integration: a `pyprojkit-python` skill in the
     [Agent Skills](https://agentskills.io) format, generated from the project's
@@ -148,16 +197,20 @@ class SkillConfig:
     `<skills_dir>/pyprojkit-python/SKILL.md`.
     """
 
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        return cls()
+
 
 @dataclass(kw_only=True)
-class ToolsConfig:
+class ToolsConfig(BaseConfig):
     """
     Development tool configurations, grouped by broad tool category.
 
     Every category is opt-in: `None` (the default) means the tool is neither managed nor
-    given a task. For a pre-canned set of everything, see `create_kitchen_sink_tools()`;
-    to share a configuration across projects, define your own factory function or
-    global.
+    given a task. For a pre-canned set of everything, see `create_kitchen_sink()` (also
+    available as `create_kitchen_sink_tools()`); to share a configuration across
+    projects, define your own factory function or global.
     """
 
     workflow_tool: Literal["uv", "poetry"] | None = None
@@ -178,6 +231,26 @@ class ToolsConfig:
     Agent skill integration. When `None`, managed skill files are removed on the next
     sync.
     """
+
+    @classmethod
+    def create_kitchen_sink(cls) -> Self:
+        """
+        Enables every tool category, each with its opinionated settings: uv as the
+        workflow tool, formatting, testing, doit, nox, mkinit, static analysis,
+        publishing and the agent skill. Sphinx is left disabled since it needs
+        project-specific settings.
+        """
+        return cls(
+            workflow_tool="uv",
+            formatting=FormattingConfig.create_kitchen_sink(),
+            test=TestConfig.create_kitchen_sink(),
+            doit=DoitConfig.create_kitchen_sink(),
+            nox=NoxConfig.create_kitchen_sink(),
+            doc=DocConfig.create_kitchen_sink(),
+            analysis=AnalysisConfig.create_kitchen_sink(),
+            publish=PublishConfig.create_kitchen_sink(),
+            skill=SkillConfig.create_kitchen_sink(),
+        )
 
 
 @dataclass(kw_only=True)

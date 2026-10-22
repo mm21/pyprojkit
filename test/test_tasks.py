@@ -108,12 +108,15 @@ def test_opt_in_tasks(
     with pytest.raises(ConfigError, match="tools.doc.sphinx"):
         factory.create_doc_task()
 
-    # mkinit enabled by default
+    # mkinit enabled by kitchen sink
     task = factory.create_init_task()()
     assert _py_action(task.actions[0]).args[0][:2] == ["mkinit", "src/fixture_pkg"]
 
     # enable analysis
-    enabled = replace(config, tools=replace(config.tools, analysis=AnalysisConfig()))
+    enabled = replace(
+        config,
+        tools=replace(config.tools, analysis=AnalysisConfig.create_kitchen_sink()),
+    )
     task = TaskFactory(config=enabled).create_analysis_task()()
     cmds = _run_task(task, monkeypatch)
     assert [cmd[0] for cmd in cmds] == ["mypy", "pyright"]
@@ -313,7 +316,11 @@ def test_doit_list_smoke(project: Path):
 def _enable_all(config: ProjectConfig) -> ProjectConfig:
     return replace(
         config,
-        tools=replace(config.tools, analysis=AnalysisConfig(), nox=NoxConfig()),
+        tools=replace(
+            config.tools,
+            analysis=AnalysisConfig.create_kitchen_sink(),
+            nox=NoxConfig.create_kitchen_sink(),
+        ),
     )
 
 

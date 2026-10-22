@@ -6,13 +6,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 if TYPE_CHECKING:
     from .project import ProjectConfig
 
 __all__ = [
     "ConfigError",
+    "BaseConfig",
     "BaseToolConfig",
     "BaseFormatterConfig",
 ]
@@ -24,16 +25,36 @@ class ConfigError(Exception):
     """
 
 
+class BaseConfig(ABC):
+    """
+    Base for all tool configurations: both tool categories (e.g. `TestConfig`) and
+    individual tools' `pyproject.toml` tables (e.g. `PytestConfig`).
+
+    A default-constructed config is empty: every setting is unset and every optional
+    sub-config is disabled. Opinionated settings are provided by
+    `create_kitchen_sink()`.
+    """
+
+    @classmethod
+    @abstractmethod
+    def create_kitchen_sink(cls) -> Self:
+        """
+        Get a new instance with opinionated settings, as used by
+        `create_kitchen_sink_tools()`.
+        """
+        ...
+
+
 @dataclass(kw_only=True)
-class BaseToolConfig(ABC):
+class BaseToolConfig(BaseConfig):
     """
     Configuration for a tool which reads its settings from a table in `pyproject.toml`,
     e.g. `[tool.black]`.
 
     Dataclass fields map to table entries; a field whose name differs from its TOML key
     declares the key via `field(metadata={"toml": "some-key"})`. Fields set to `None`
-    are omitted. Values derived from project-wide config (e.g. black's `target-version`)
-    are contributed by `extra_toml()`.
+    (the default for every field) are omitted. Values derived from project-wide config
+    (e.g. black's `target-version`) are contributed by `extra_toml()`.
     """
 
     table_path: ClassVar[str]

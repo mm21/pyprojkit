@@ -18,7 +18,7 @@ from pyprojkit import (
 )
 from pyprojkit.cli import main
 from pyprojkit.config.project import SkillConfig
-from pyprojkit.config.tools import BlackConfig, TomlSortConfig
+from pyprojkit.config.tools import BlackConfig, PyrightConfig, TomlSortConfig
 from pyprojkit.skill import render_skill
 from pyprojkit.sync import render
 
@@ -233,7 +233,12 @@ def test_purge_dropped_tool(project: Path, config: ProjectConfig):
         config,
         tools=replace(
             config.tools,
-            formatting=FormattingConfig(formatters=(BlackConfig(), TomlSortConfig())),
+            formatting=FormattingConfig(
+                formatters=(
+                    BlackConfig.create_kitchen_sink(),
+                    TomlSortConfig.create_kitchen_sink(),
+                )
+            ),
         ),
     )
     sync(slim, project)
@@ -352,7 +357,8 @@ def test_skill_content(config: ProjectConfig):
     )
 
     analysis = replace(
-        config, tools=replace(config.tools, analysis=AnalysisConfig(mypy=None))
+        config,
+        tools=replace(config.tools, analysis=AnalysisConfig(pyright=PyrightConfig())),
     )
     assert "`uv run doit analysis`: runs static analysis (pyright)" in render_skill(
         analysis

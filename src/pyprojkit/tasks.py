@@ -347,7 +347,7 @@ class TaskFactory:
         Create `publish` task which builds and publishes the package via uv.
         """
         publish = self._require(self._config.tools.publish, "tools.publish")
-        out_dir = Path(publish.out_dir)
+        out_dir = Path(publish.out_dir or "dist")
 
         def _publish():
             artifacts = [str(p) for p in sorted(out_dir.iterdir())]

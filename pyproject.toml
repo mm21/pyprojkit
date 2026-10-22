@@ -107,12 +107,16 @@ profile = "black"  # pyprojkit-managed
 quiet = true  # pyprojkit-managed
 
 [tool.mypy]
+check_untyped_defs = true  # pyprojkit-managed
 ignore_missing_imports = true  # pyprojkit-managed
 python_version = "3.12"  # pyprojkit-managed
 
 [tool.nox]
 default_venv_backend = "uv"  # pyprojkit-managed
 envdir = "__cache__/nox"  # pyprojkit-managed
+
+[tool.pyright]
+pythonVersion = "3.12"  # pyprojkit-managed
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib -s -v -rA"  # pyprojkit-managed
