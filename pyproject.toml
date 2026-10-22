@@ -108,7 +108,6 @@ quiet = true  # pyprojkit-managed
 
 [tool.mypy]
 check_untyped_defs = true  # pyprojkit-managed
-ignore_missing_imports = true  # pyprojkit-managed
 python_version = "3.12"  # pyprojkit-managed
 
 [tool.nox]
