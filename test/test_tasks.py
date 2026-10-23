@@ -119,12 +119,17 @@ def test_opt_in_tasks(
         config,
         tools=replace(config.tools, analysis=AnalysisConfig.create_recommended()),
     )
+    (project / "doc").mkdir()
+    (project / "examples" / "sub").mkdir(parents=True)
+    (project / "examples" / "sub" / "example.py").write_text("")
     task = TaskFactory(config=enabled).create_analysis_task()()
     cmds = _run_task(task, monkeypatch)
     assert [cmd[0] for cmd in cmds] == ["mypy", "pyright"]
-    # top-level files are included, toml files aren't
-    assert cmds[0][-3:] == ["src/fixture_pkg", "test", "pyprojconf.py"]
-    assert cmds[1][-3:] == ["src/fixture_pkg", "test", "pyprojconf.py"]
+    # top-level files are included, toml files and dirs without python files aren't
+    # (the fixture's test dir is empty)
+    expected = ["src/fixture_pkg", "examples", "pyprojconf.py"]
+    assert cmds[0][-3:] == expected
+    assert cmds[1][-3:] == expected
 
     # override packages location
     flat = replace(enabled, source_path=".")

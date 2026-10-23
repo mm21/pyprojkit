@@ -184,6 +184,13 @@ def _split_code_paths(paths: list[Path]) -> tuple[list[str], list[str]]:
     return py_paths, toml_paths
 
 
+def _has_python_files(path: Path) -> bool:
+    """
+    Check whether the directory contains any python source or stub files, recursively.
+    """
+    return any(p.suffix in (".py", ".pyi") for p in path.rglob("*"))
+
+
 def _normalize_svg(path: Path | str):
     """
     Rewrite SVG with attributes sorted, as genbadge doesn't order them
@@ -471,7 +478,15 @@ class TaskFactory:
         Create `analysis` task which runs static analysis tools.
         """
         analysis = self._require(self._config.tools.analysis, "tools.analysis")
-        code_paths, _ = _split_code_paths(self._config.get_code_paths(self._root))
+        # skip directories without python files, which mypy rejects
+        code_paths, _ = _split_code_paths(
+            [
+                path
+                for path in self._config.get_code_paths(self._root)
+                if not (self._root / path).is_dir()
+                or _has_python_files(self._root / path)
+            ]
+        )
 
         commands: list[list[str]] = []
 
