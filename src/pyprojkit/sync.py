@@ -7,8 +7,12 @@ Managed content:
 - A header comment at the top of `pyproject.toml` noting it is managed (in part) by
   pyprojkit
 - `project.requires-python`
-- Python version classifiers (`Programming Language :: Python :: 3[.X]`);
-  other classifiers are left untouched, as are comments in the list
+- Python version classifiers (`Programming Language :: Python :: 3[.X]`) and, if the
+  project is typed, `Typing :: Typed`; managed classifiers are marked with an inline
+  `# pyprojkit-managed` comment and removed when dropped from the configuration. Other
+  classifiers are left untouched, as are comments in the list
+- An empty `py.typed` file in each package directory, if the project is typed; created
+  if missing, but never removed
 - Individual key/value pairs within tool tables, marked with an inline
   `# pyprojkit-managed` comment; the marker doubles as bookkeeping — a marked field
   dropped from the configuration is deleted on the next sync, and a table emptied
@@ -49,7 +53,6 @@ from .config.base import BaseToolConfig, ConfigError
 from .config.project import ProjectConfig, SkillConfig
 from .config.tools import TomlSortConfig
 from .skill import SKILL_NAME, render_skill
-from .versions import PythonVersionSet
 
 __all__ = [
     "compute_managed_fields",
@@ -58,6 +61,7 @@ __all__ = [
 ]
 
 _CLASSIFIER_RE = re.compile(r"^Programming Language :: Python :: \d+(\.\d+)?$")
+_TYPED_CLASSIFIER = "Typing :: Typed"
 
 _MARKER = "pyprojkit-managed"
 _LEGACY_MARKER = "managed by pyprojkit"
@@ -97,8 +101,7 @@ def render(config: ProjectConfig, text: str) -> str:
     if project is None:
         raise ConfigError("pyproject.toml has no [project] table")
 
-    if config.pinned_versions is not None:
-        _update_classifiers(project, config.pinned_versions)
+    _update_classifiers(project, config)
 
     fields = compute_managed_fields(config)
     fields["project"] = {"requires-python": config.requires_python.specifier}
@@ -149,6 +152,14 @@ def sync(
         else:
             path.write_text(new)
 
+    for marker_path in _iter_missing_typed_markers(config, root_path):
+        rel = marker_path.relative_to(root_path)
+        if check:
+            print(f"would create {rel}")
+            in_sync = False
+        else:
+            marker_path.touch()
+
     for skill_path, desired in _iter_skill_files(config, root_path):
         current = skill_path.read_text() if skill_path.is_file() else None
         if current == desired:
@@ -190,6 +201,19 @@ def _print_diff(name: str, old: str, new: str):
         tofile=f"{name} (synced)",
     )
     print("".join(diff), end="")
+
+
+def _iter_missing_typed_markers(config: ProjectConfig, root: Path) -> Iterator[Path]:
+    """
+    Yield the path of each missing `py.typed` file, if the project is typed; packages
+    whose directory doesn't exist are skipped.
+    """
+    if not config.typed:
+        return
+    for package in config.resolved_packages:
+        package_dir = root / package.path
+        if package_dir.is_dir() and not (package_dir / "py.typed").exists():
+            yield package_dir / "py.typed"
 
 
 def _iter_skill_files(
@@ -238,22 +262,32 @@ def _ensure_header(text: str) -> str:
     return f"{_HEADER_COMMENT}\n\n{text}"
 
 
-def _update_classifiers(project: Table, versions: PythonVersionSet):
+def _update_classifiers(project: Table, config: ProjectConfig):
     """
-    Replace python version classifiers with those derived from pinned versions,
-    preserving all others; result is sorted, with managed entries marked by an inline
-    comment.
+    Replace managed classifiers with those derived from the configuration, preserving
+    all others; result is sorted, with managed entries marked by an inline comment.
+
+    Stale entries are those previously marked as managed, plus python version
+    classifiers if versions are pinned (so they're replaced wholesale). Left untouched
+    if there are neither managed nor stale entries.
 
     Comments in the existing list are preserved: an inline comment stays with its entry,
     and a standalone comment stays with the entry it precedes (or is emitted at the end
     of the list if it precedes none).
     """
-    prefix = "Programming Language :: Python :: "
-    managed = {f"{prefix}{maj}" for maj, _ in versions.versions} | {
-        f"{prefix}{maj}.{min}" for maj, min in versions.versions
-    }
+    versions = config.pinned_versions
+    managed = _managed_classifiers(config)
     existing = project.get("classifiers", [])
-    kept = [str(c) for c in existing if not _CLASSIFIER_RE.match(str(c))]
+    marked = _marked_classifiers(existing)
+    kept = [
+        str(c)
+        for c in existing
+        if str(c) not in marked
+        and not (versions is not None and _CLASSIFIER_RE.match(str(c)))
+    ]
+    if not managed and len(kept) == len(existing):
+        return
+
     leading, inline, trailing = _collect_classifier_comments(
         existing, set(kept) | managed
     )
@@ -271,6 +305,33 @@ def _update_classifiers(project: Table, versions: PythonVersionSet):
         array.add_line(comment=comment, indent="  ")
     array.add_line(indent="")
     project["classifiers"] = array
+
+
+def _managed_classifiers(config: ProjectConfig) -> set[str]:
+    """
+    Get classifiers derived from the configuration.
+    """
+    managed: set[str] = set()
+    if (versions := config.pinned_versions) is not None:
+        prefix = "Programming Language :: Python :: "
+        managed |= {f"{prefix}{maj}" for maj, _ in versions.versions}
+        managed |= {f"{prefix}{maj}.{min}" for maj, min in versions.versions}
+    if config.typed:
+        managed.add(_TYPED_CLASSIFIER)
+    return managed
+
+
+def _marked_classifiers(array: Any) -> set[str]:
+    """
+    Get entries of an existing classifiers array carrying a managed marker comment.
+    """
+    return {
+        str(group.value)
+        for group in getattr(array, "_value", [])
+        if group.value is not None
+        and not isinstance(group.value, Null)
+        and _comment_text(group) in (_MARKER, _LEGACY_MARKER)
+    }
 
 
 def _collect_classifier_comments(

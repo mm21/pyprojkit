@@ -310,6 +310,12 @@ class ProjectConfig:
     Tool configurations.
     """
 
+    typed: bool = False
+    """
+    Whether the packages ship type information: adds the `Typing :: Typed` classifier
+    and creates an empty `py.typed` file in each package directory if missing.
+    """
+
     def __post_init__(self):
         names = [package.name for package in self.resolved_packages]
         if not names:

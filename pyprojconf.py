@@ -10,4 +10,5 @@ config = ProjectConfig(
     requires_python=RequiresPython((3, 12)),
     pinned_python=PythonVersions(3, (12, 14)),
     tools=create_recommended_tools(),
+    typed=True,
 )

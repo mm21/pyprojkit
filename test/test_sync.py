@@ -435,3 +435,43 @@ def test_sync_locks(project: Path, config: ProjectConfig, lock_calls: list[list[
     poetry = replace(config, tools=replace(config.tools, workflow_tool="poetry"))
     sync(poetry, project)
     assert lock_calls == [["poetry", "lock"]]
+
+
+def test_typed(project: Path, config: ProjectConfig):
+    typed_config = replace(config, typed=True)
+    marker = project / "src" / "fixture_pkg" / "py.typed"
+    path = project / "pyproject.toml"
+
+    assert sync(typed_config, project, check=True) is False
+    assert not marker.exists()
+
+    sync(typed_config, project)
+    assert marker.is_file()
+    assert marker.read_text() == ""
+    text = path.read_text()
+    assert '"Typing :: Typed"  # pyprojkit-managed' in text
+    assert sync(typed_config, project, check=True) is True
+
+    # existing marker is left untouched
+    marker.write_text("partial\n")
+    sync(typed_config, project)
+    assert marker.read_text() == "partial\n"
+
+    # disabling removes the managed classifier but keeps py.typed
+    sync(config, project)
+    assert "Typing :: Typed" not in path.read_text()
+    assert marker.is_file()
+
+
+def test_untyped_classifier_preserved(config: ProjectConfig):
+    text = """\
+[project]
+classifiers = [
+  "Typing :: Typed"  # ours
+]
+name = "fixture-pkg"
+version = "0.1.0"
+"""
+    unpinned = replace(config, pinned_python=None)
+    assert '"Typing :: Typed"  # ours' in render(config, text)
+    assert '"Typing :: Typed"  # ours' in render(unpinned, text)
