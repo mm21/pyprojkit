@@ -47,7 +47,7 @@ def test_render_managed_content(project: Path, config: ProjectConfig):
 
     # managed fields
     assert _get_table(doc, "tool.black")["target-version"] == ["py312", "py313"]
-    assert _get_table(doc, "tool.pytest.ini_options")["testpaths"] == "test"
+    assert _get_table(doc, "tool.pytest.ini_options")["testpaths"] == ["test"]
     assert _get_table(doc, "tool.coverage.run")["data_file"] == "__cache__/.coverage"
     assert _get_table(doc, "tool.doit")["dep_file"] == "__cache__/.doit.db"
     assert _get_table(doc, "tool.nox")["default_venv_backend"] == "uv"
@@ -72,7 +72,7 @@ def test_managed_comments(project: Path, config: ProjectConfig):
     # managed fields, requires-python, and version classifiers are marked
     assert 'requires-python = ">=3.12,<4.0"  # pyprojkit-managed' in text
     assert '"Programming Language :: Python :: 3.12",  # pyprojkit-managed' in text
-    assert 'testpaths = "test"  # pyprojkit-managed' in text
+    assert 'testpaths = ["test"]  # pyprojkit-managed' in text
     assert "quiet = true  # pyprojkit-managed" in text
 
     # tables are no longer marked as a whole
@@ -370,7 +370,9 @@ def test_check_reports_all_drift(project: Path, config: ProjectConfig):
 
     # introduce drift in both pyproject.toml and a skill file
     path = project / "pyproject.toml"
-    path.write_text(path.read_text().replace('testpaths = "test"', 'testpaths = "t"'))
+    path.write_text(
+        path.read_text().replace('testpaths = ["test"]', 'testpaths = ["t"]')
+    )
     (project / SKILL_PATH).unlink()
 
     out = io.StringIO()

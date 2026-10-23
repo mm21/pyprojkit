@@ -4,13 +4,14 @@ Project-wide configuration, declared in a project's `pyprojconf.py`.
 
 from __future__ import annotations
 
+import glob
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Self, Sequence
 
 from .. import _paths
 from ..versions import PythonVersions, PythonVersionSet, RequiresPython
-from .base import BaseConfig, BaseFormatterConfig
+from .base import BaseConfig, BaseFormatterConfig, ConfigError
 from .tools import (
     AutoflakeConfig,
     BlackConfig,
@@ -28,6 +29,8 @@ from .tools import (
 
 __all__ = [
     "ProjectConfig",
+    "PackageSpec",
+    "ResolvedPackage",
     "ToolsConfig",
     "FormattingConfig",
     "TestConfig",
@@ -261,9 +264,11 @@ class ProjectConfig:
     A project's `pyprojconf.py` must define a module-level instance named `config`.
     """
 
-    package: str
+    packages: str | PackageSpec | Sequence[str | PackageSpec]
     """
-    Import name of the package, e.g. `"trilium_alchemy"`.
+    Packages comprising the project: import names, e.g. `"trilium_alchemy"`, or
+    `PackageSpec`s to locate a package in a source path other than `source_path`. See
+    `resolved_packages` for the normalized form.
     """
 
     requires_python: RequiresPython
@@ -281,16 +286,23 @@ class ProjectConfig:
     tools which need specific versions.
     """
 
-    packages_dir: str = "src"
+    source_path: str = "src"
     """
-    Directory containing packages, relative to the project root.
+    Default directory containing packages, relative to the project root; `"."` for a
+    flat layout. Overridden per package by `PackageSpec.source_path`.
     """
 
-    code_paths: Sequence[str] = ("src", "test", "doc", "examples")
+    test_paths: Sequence[str] = ("test",)
     """
-    Directories containing Python code (those which exist), relative to the project
-    root. These are formatted (in addition to `*.py` and `*.toml` files at the project
-    root) and checked by static analysis.
+    Directories containing tests, relative to the project root; may be glob patterns.
+    Propagated to pytest's `testpaths`.
+    """
+
+    extra_code_paths: Sequence[str] = ("doc", "examples", "*.py", "*.toml")
+    """
+    Additional directories or files containing code, relative to the project root; may
+    be glob patterns. Formatted and checked by static analysis along with the package
+    and test paths (see `get_code_paths()`).
     """
 
     tools: ToolsConfig = field(default_factory=ToolsConfig)
@@ -299,6 +311,12 @@ class ProjectConfig:
     """
 
     def __post_init__(self):
+        names = [package.name for package in self.resolved_packages]
+        if not names:
+            raise ConfigError("At least one package must be configured")
+        if duplicates := sorted({name for name in names if names.count(name) > 1}):
+            raise ConfigError(f"Duplicate packages: {', '.join(duplicates)}")
+
         if self.pinned_versions is None:
             return
         for version in self.pinned_versions.versions:
@@ -318,8 +336,120 @@ class ProjectConfig:
         return PythonVersionSet.from_config(self.pinned_python)
 
     @property
-    def package_path(self) -> Path:
+    def resolved_packages(self) -> tuple[ResolvedPackage, ...]:
+        """
+        Packages normalized with their source paths resolved, in configured order.
+        """
+        packages = (
+            [self.packages]
+            if isinstance(self.packages, (str, PackageSpec))
+            else self.packages
+        )
+        specs = (
+            PackageSpec(package) if isinstance(package, str) else package
+            for package in packages
+        )
+        return tuple(
+            ResolvedPackage(
+                name=spec.name,
+                source_path=Path(
+                    spec.source_path
+                    if spec.source_path is not None
+                    else self.source_path
+                ),
+            )
+            for spec in specs
+        )
+
+    def get_test_paths(self, root: Path) -> list[Path]:
+        """
+        Get existing test paths, with glob patterns expanded, relative to the project
+        root.
+        """
+        return _glob_paths(root, self.test_paths)
+
+    def get_code_paths(self, root: Path) -> list[Path]:
+        """
+        Get all existing paths containing code — package directories, test paths, and
+        extra code paths — with glob patterns expanded, relative to the project root.
+
+        Paths nested within another are omitted.
+        """
+        paths = [
+            package.path
+            for package in self.resolved_packages
+            if (root / package.path).is_dir()
+        ]
+        paths += self.get_test_paths(root)
+        paths += _glob_paths(root, self.extra_code_paths)
+
+        # dedupe, dropping paths nested within another
+        result: list[Path] = []
+        for path in paths:
+            if path in result or any(
+                path.is_relative_to(other)
+                for other in paths
+                if other not in (path, Path("."))
+            ):
+                continue
+            result.append(path)
+        return result
+
+
+@dataclass(frozen=True)
+class PackageSpec:
+    """
+    Package to include in the project, optionally located in a source path other than
+    the project's default.
+    """
+
+    name: str
+    """
+    Import name of the package.
+    """
+
+    source_path: str | None = None
+    """
+    Directory containing the package, relative to the project root, if other than
+    `ProjectConfig.source_path`.
+    """
+
+
+@dataclass(frozen=True, kw_only=True)
+class ResolvedPackage:
+    """
+    Package with its source path resolved, as given by
+    `ProjectConfig.resolved_packages`.
+    """
+
+    name: str
+    """
+    Import name of the package.
+    """
+
+    source_path: Path
+    """
+    Directory containing the package, relative to the project root.
+    """
+
+    @property
+    def path(self) -> Path:
         """
         Path to the package directory, relative to the project root.
         """
-        return Path(self.packages_dir) / self.package
+        return self.source_path / self.name
+
+
+def _glob_paths(root: Path, patterns: Sequence[str]) -> list[Path]:
+    """
+    Expand path patterns relative to the root, keeping those which exist, in pattern
+    order (and sorted within each pattern).
+    """
+    paths: list[Path] = []
+    for pattern in patterns:
+        if glob.has_magic(pattern):
+            matches = sorted(p.relative_to(root) for p in root.glob(pattern))
+        else:
+            matches = [Path(pattern)] if (root / pattern).exists() else []
+        paths += [p for p in matches if p not in paths]
+    return paths

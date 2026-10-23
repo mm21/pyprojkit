@@ -25,7 +25,7 @@ def create_mycompany_tools() -> ToolsConfig:
                 BlackConfig(),
             )
         ),
-        test=TestConfig(pytest=PytestConfig(testpaths="tests")),
+        test=TestConfig(pytest=PytestConfig(addopts="-v")),
         analysis=AnalysisConfig(pyright=PyrightConfig()),
     )
 ```

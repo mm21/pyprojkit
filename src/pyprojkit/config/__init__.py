@@ -33,6 +33,8 @@ from .tools import (
 )
 from .project import (
     ProjectConfig,
+    PackageSpec,
+    ResolvedPackage,
     ToolsConfig,
     FormattingConfig,
     TestConfig,
@@ -65,6 +67,8 @@ __all__ = [
     "MypyConfig",
     "PyrightConfig",
     "ProjectConfig",
+    "PackageSpec",
+    "ResolvedPackage",
     "ToolsConfig",
     "FormattingConfig",
     "TestConfig",

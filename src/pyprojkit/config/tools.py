@@ -155,15 +155,16 @@ class PytestConfig(BaseToolConfig):
 
     addopts: str | None = None
     cache_dir: str | None = None
-    testpaths: str | None = None
 
     @classmethod
     def create_recommended(cls) -> Self:
         return cls(
             addopts="--import-mode=importlib -s -v -rA",
             cache_dir=str(_paths.PYTEST_CACHE_PATH),
-            testpaths="test",
         )
+
+    def extra_toml(self, project: ProjectConfig) -> dict[str, Any]:
+        return {"testpaths": list(project.test_paths)}
 
 
 @dataclass(kw_only=True)

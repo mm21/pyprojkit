@@ -124,7 +124,7 @@ pythonVersion = "3.12"  # pyprojkit-managed
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib -s -v -rA"  # pyprojkit-managed
 cache_dir = "__cache__/pytest"  # pyprojkit-managed
-testpaths = "test"  # pyprojkit-managed
+testpaths = ["test"]  # pyprojkit-managed
 
 [tool.tomlsort]
 sort_first = [

@@ -124,8 +124,8 @@ def _populate_sandbox(config: ProjectConfig, root: Path, sandbox: Path):
         skills_dirs.add(skill.skills_dir)
 
     dirs = [
-        *(Path(p) for p in config.code_paths),
-        config.package_path,
+        *config.get_code_paths(root),
+        *(package.path for package in config.resolved_packages),
         _paths.BADGES_PATH,
         *(Path(d) / SKILL_NAME for d in skills_dirs),
     ]
@@ -171,6 +171,17 @@ def _compare(old: dict[str, bytes], new: dict[str, bytes]) -> list[str]:
         # terminate lines lacking a newline (at end of file) so they don't run together
         print("".join(line.rstrip("\n") + "\n" for line in diff), end="", flush=True)
     return changed
+
+
+def _split_code_paths(paths: list[Path]) -> tuple[list[str], list[str]]:
+    """
+    Split code paths into python paths (directories and non-TOML files) and TOML files.
+    """
+    py_paths: list[str] = []
+    toml_paths: list[str] = []
+    for path in paths:
+        (toml_paths if path.suffix == ".toml" else py_paths).append(str(path))
+    return py_paths, toml_paths
 
 
 def _normalize_svg(path: Path | str):
@@ -222,16 +233,6 @@ class TaskFactory:
 
         return task_sync
 
-    def _code_paths(self) -> list[str]:
-        """
-        Python code to format and analyze: top-level `*.py` files plus the configured
-        code directories which exist in the project.
-        """
-        root = self._root
-        return [str(p) for p in sorted(root.glob("*.py"))] + [
-            path for path in self._config.code_paths if (root / path).is_dir()
-        ]
-
     def create_format_task(self) -> TaskCreator:
         """
         Create `format` task which runs the configured formatters.
@@ -241,8 +242,7 @@ class TaskFactory:
 
         def task_format() -> Task:
             # aggregate files to format
-            py_paths = self._code_paths()
-            toml_paths = [str(p) for p in sorted(root.glob("*.toml"))]
+            py_paths, toml_paths = _split_code_paths(config.get_code_paths(root))
 
             actions = [
                 (
@@ -271,7 +271,10 @@ class TaskFactory:
         def task_test() -> Task:
             args = [
                 "pytest",
-                f"--cov={self._config.package}",
+                *(
+                    f"--cov={package.name}"
+                    for package in self._config.resolved_packages
+                ),
                 f"--cov-report=html:{_paths.COV_HTML_PATH}",
                 f"--cov-report=xml:{_paths.COV_XML_PATH}",
                 f"--junitxml={_paths.JUNIT_PATH}",
@@ -377,13 +380,14 @@ class TaskFactory:
         mkinit = self._require(
             doc.mkinit if (doc := self._config.tools.doc) else None, "tools.doc.mkinit"
         )
-        package_path = self._config.package_path
+        packages = self._config.resolved_packages
 
         def task_init() -> Task:
             return Task(
                 "init",
                 actions=[
-                    (run, (["mkinit", str(package_path), *mkinit.args],)),
+                    (run, (["mkinit", str(package.path), *mkinit.args],))
+                    for package in packages
                 ],
                 targets=[],
                 file_dep=[],
@@ -467,7 +471,7 @@ class TaskFactory:
         Create `analysis` task which runs static analysis tools.
         """
         analysis = self._require(self._config.tools.analysis, "tools.analysis")
-        code_paths = self._code_paths()
+        code_paths, _ = _split_code_paths(self._config.get_code_paths(self._root))
 
         commands: list[list[str]] = []
 

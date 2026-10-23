@@ -40,7 +40,7 @@ from dataclasses import replace
 
 from pyprojkit import ProjectConfig, PythonVersions, RequiresPython, create_recommended_tools
 
-config = ProjectConfig(package="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)), tools=replace(create_recommended_tools(), analysis=None))
+config = ProjectConfig(packages="fixture_pkg", requires_python=RequiresPython((3, 12)), pinned_python=PythonVersions(3, (12, 13)), tools=replace(create_recommended_tools(), analysis=None))
 """
 
 
@@ -59,7 +59,7 @@ def lock_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 @pytest.fixture
 def config() -> ProjectConfig:
     return ProjectConfig(
-        package="fixture_pkg",
+        packages="fixture_pkg",
         requires_python=RequiresPython((3, 12)),
         pinned_python=PythonVersions(3, (12, 13)),
         tools=replace(create_recommended_tools(), analysis=None),

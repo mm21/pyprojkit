@@ -60,10 +60,20 @@ def _render_project(config: ProjectConfig) -> str:
     requires = config.requires_python
     min_version = f"{requires.min[0]}.{requires.min[1]}"
 
+    packages = config.resolved_packages
+    if len(packages) == 1:
+        package_lines = [
+            f"- The package `{packages[0].name}` lives in `{packages[0].path.as_posix()}`."
+        ]
+    else:
+        package_lines = ["- The project's packages live in:"] + [
+            f"  - `{package.name}`: `{package.path.as_posix()}`" for package in packages
+        ]
+
     lines = [
         "## Project",
         "",
-        f"- The package `{config.package}` lives in `{config.package_path.as_posix()}`.",
+        *package_lines,
         f"- Code must support Python {min_version}+ (`requires-python = "
         f'"{requires.specifier}"`): use modern syntax and standard library features '
         f"available in Python {min_version}, and don't add compatibility shims for "
@@ -124,7 +134,8 @@ def _render_workflow(config: ProjectConfig) -> str | None:
         )
 
     if tools.doit and (test := tools.test):
-        test_dir = f" under `{test.pytest.testpaths}/`" if test.pytest.testpaths else ""
+        test_dirs = " or ".join(f"`{p}/`" for p in config.test_paths)
+        test_dir = f" under {test_dirs}" if test_dirs else ""
         steps.append(
             f"`{_cmd(config, 'doit test')}`: runs the test suite with coverage. Add or update "
             f"tests{test_dir} for any changed behavior."

@@ -1,4 +1,5 @@
 from dataclasses import fields, replace
+from pathlib import Path
 
 import pytest
 
@@ -6,16 +7,19 @@ from pyprojkit import (
     AnalysisConfig,
     AutoflakeConfig,
     BlackConfig,
+    ConfigError,
     DocConfig,
     DocfmtConfig,
     FormattingConfig,
     IsortConfig,
     MkinitConfig,
+    PackageSpec,
     ProjectConfig,
     PublishConfig,
     PythonVersions,
     PythonVersionSet,
     RequiresPython,
+    ResolvedPackage,
     TomlSortConfig,
     ToolsConfig,
     create_recommended_tools,
@@ -131,7 +135,7 @@ def test_requires_python():
 def test_pinned_versions_outside_requires_python():
     with pytest.raises(ValueError):
         ProjectConfig(
-            package="p",
+            packages="p",
             requires_python=RequiresPython((3, 13)),
             pinned_python=PythonVersions(3, (12, 14)),
         )
@@ -139,7 +143,7 @@ def test_pinned_versions_outside_requires_python():
 
 def test_python_version_set_discontiguous():
     config = ProjectConfig(
-        package="p",
+        packages="p",
         requires_python=RequiresPython((2, 10), (4, 0)),
         pinned_python=[PythonVersions(2, (10, 12)), PythonVersions(3, (1, 3))],
     )
@@ -150,5 +154,82 @@ def test_python_version_set_discontiguous():
 
 
 def test_pinned_python_optional():
-    config = ProjectConfig(package="p", requires_python=RequiresPython((3, 12)))
+    config = ProjectConfig(packages="p", requires_python=RequiresPython((3, 12)))
     assert config.pinned_versions is None
+
+
+def test_packages():
+    requires = RequiresPython((3, 12))
+
+    # single str
+    config = ProjectConfig(packages="pkg", requires_python=requires)
+    assert config.resolved_packages == (
+        ResolvedPackage(name="pkg", source_path=Path("src")),
+    )
+    assert config.resolved_packages[0].path == Path("src/pkg")
+
+    # single spec, flat layout
+    config = ProjectConfig(
+        packages=PackageSpec("pkg"), source_path=".", requires_python=requires
+    )
+    assert config.resolved_packages[0].path == Path("pkg")
+
+    # mixed sequence: spec source path overrides the default
+    config = ProjectConfig(
+        packages=("a", PackageSpec("b"), PackageSpec("c", "lib")),
+        requires_python=requires,
+    )
+    assert [p.path for p in config.resolved_packages] == [
+        Path("src/a"),
+        Path("src/b"),
+        Path("lib/c"),
+    ]
+
+    with pytest.raises(ConfigError, match="At least one package"):
+        ProjectConfig(packages=(), requires_python=requires)
+
+    with pytest.raises(ConfigError, match="Duplicate packages: a"):
+        ProjectConfig(
+            packages=("a", PackageSpec("a", source_path="lib")),
+            requires_python=requires,
+        )
+
+
+def test_code_paths_glob(tmp_path: Path):
+    for d in ("src/a", "lib/b", "test", "src/a/tests", "doc/sub", "examples"):
+        (tmp_path / d).mkdir(parents=True)
+    for f in ("dodo.py", "noxfile.py", "pyproject.toml", "README.md"):
+        (tmp_path / f).write_text("")
+
+    config = ProjectConfig(
+        packages=("a", PackageSpec("b", source_path="lib"), "missing"),
+        requires_python=RequiresPython((3, 12)),
+        test_paths=("test", "src/*/tests"),
+        extra_code_paths=("doc", "doc/sub", "*.py", "*.toml"),
+    )
+
+    assert config.get_test_paths(tmp_path) == [Path("test"), Path("src/a/tests")]
+    # nested and missing paths are dropped; globs are expanded in sorted order
+    assert config.get_code_paths(tmp_path) == [
+        Path("src/a"),
+        Path("lib/b"),
+        Path("test"),
+        Path("doc"),
+        Path("dodo.py"),
+        Path("noxfile.py"),
+        Path("pyproject.toml"),
+    ]
+
+
+def test_code_paths_flat(tmp_path: Path):
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "other").mkdir()
+    config = ProjectConfig(
+        packages="pkg",
+        requires_python=RequiresPython((3, 12)),
+        source_path=".",
+        test_paths=(),
+        extra_code_paths=(),
+    )
+    # flat layout contributes only the package
+    assert config.get_code_paths(tmp_path) == [Path("pkg")]

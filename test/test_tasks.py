@@ -15,6 +15,7 @@ from pyprojkit import (
     AnalysisConfig,
     ConfigError,
     NoxConfig,
+    PackageSpec,
     ProjectConfig,
     TaskFactory,
     ToolsConfig,
@@ -66,9 +67,10 @@ def test_format_task(project: Path):
 
     # existing dirs and root files aggregated
     autoflake_cmd = cmds[0]
-    assert "src" in autoflake_cmd and "test" in autoflake_cmd
-    assert str(project / "pyprojconf.py") in autoflake_cmd
-    assert cmds[4] == ["toml-sort", "-i", str(project / "pyproject.toml")]
+    assert "src/fixture_pkg" in autoflake_cmd and "test" in autoflake_cmd
+    assert "pyprojconf.py" in autoflake_cmd
+    assert "pyproject.toml" not in autoflake_cmd
+    assert cmds[4] == ["toml-sort", "-i", "pyproject.toml"]
 
 
 def test_test_task(project: Path):
@@ -120,16 +122,28 @@ def test_opt_in_tasks(
     task = TaskFactory(config=enabled).create_analysis_task()()
     cmds = _run_task(task, monkeypatch)
     assert [cmd[0] for cmd in cmds] == ["mypy", "pyright"]
-    assert cmds[0][-2:] == ["src", "test"]
-    assert cmds[1][-2:] == ["src", "test"]
-    # top-level files are included
-    assert any(arg.endswith("pyprojconf.py") for arg in cmds[1])
+    # top-level files are included, toml files aren't
+    assert cmds[0][-3:] == ["src/fixture_pkg", "test", "pyprojconf.py"]
+    assert cmds[1][-3:] == ["src/fixture_pkg", "test", "pyprojconf.py"]
 
     # override packages location
-    flat = replace(enabled, packages_dir=".")
+    flat = replace(enabled, source_path=".")
     factory = TaskFactory(config=flat)
     task = factory.create_init_task()()
     assert _py_action(task.actions[0]).args[0][:2] == ["mkinit", "fixture_pkg"]
+
+    # multiple packages: mkinit runs on each, coverage covers each
+    multi = replace(
+        enabled, packages=("fixture_pkg", PackageSpec("other", source_path="lib"))
+    )
+    factory = TaskFactory(config=multi)
+    task = factory.create_init_task()()
+    assert [_py_action(a).args[0][1] for a in task.actions] == [
+        "src/fixture_pkg",
+        "lib/other",
+    ]
+    pytest_cmd = _py_action(factory.create_test_task()().actions[1]).args[0]
+    assert "--cov=fixture_pkg" in pytest_cmd and "--cov=other" in pytest_cmd
 
 
 def test_preflight_task(

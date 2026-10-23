@@ -7,7 +7,7 @@ from pyprojkit import ConfigError, load_config
 
 def test_load(project: Path):
     config = load_config()
-    assert config.package == "fixture_pkg"
+    assert config.packages == "fixture_pkg"
     assert config.pinned_versions is not None
     assert config.pinned_versions.versions == [(3, 12), (3, 13)]
 
@@ -15,7 +15,7 @@ def test_load(project: Path):
 def test_load_explicit_root(project: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir("/")
     config = load_config(project)
-    assert config.package == "fixture_pkg"
+    assert config.packages == "fixture_pkg"
 
 
 def test_missing_file(tmp_path: Path):
