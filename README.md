@@ -118,8 +118,9 @@ pinned_python = PythonVersions(3, (12, 14))
 - black's `target-version` (`["py312", "py313", "py314"]`)
 - mypy's `python_version` (`3.12`, the lowest pinned version)
 - nox interpreter pins (`3.12.13`, `3.13.13`, `3.14.6`)
+- with `python_version_file=True`, a `.python-version` file at the project root pinning the newest pinned version's exact patch release (`3.14.6`, the same as its nox pin), picked up by uv and pyenv
 
-If `pinned_python` is omitted, classifiers, black's `target-version` and mypy's `python_version` are left unmanaged, and creating the nox test session raises a `ConfigError`.
+If `pinned_python` is omitted, classifiers, black's `target-version` and mypy's `python_version` are left unmanaged, and creating the nox test session (or setting `python_version_file=True`) raises a `ConfigError`.
 
 The exact patch releases used for nox come from a mapping bundled with PyProjKit, updated with each release — so updating PyProjKit refreshes the pins across all your projects. Individual projects can override:
 

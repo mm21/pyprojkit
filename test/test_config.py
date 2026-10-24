@@ -233,3 +233,12 @@ def test_code_paths_flat(tmp_path: Path):
     )
     # flat layout contributes only the package
     assert config.get_code_paths(tmp_path) == [Path("pkg")]
+
+
+def test_python_version_file_requires_pinned():
+    with pytest.raises(ConfigError, match="python_version_file requires pinned_python"):
+        ProjectConfig(
+            packages="p",
+            requires_python=RequiresPython((3, 12)),
+            python_version_file=True,
+        )

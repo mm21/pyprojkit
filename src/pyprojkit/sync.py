@@ -13,6 +13,8 @@ Managed content:
   classifiers are left untouched, as are comments in the list
 - An empty `py.typed` file in each package directory, if the project is typed; created
   if missing, but never removed
+- A `.python-version` file at the project root pinning the newest pinned version's exact
+  patch release (as used for nox), if enabled; overwritten when out of date, but never removed
 - Individual key/value pairs within tool tables, marked with an inline
   `# pyprojkit-managed` comment; the marker doubles as bookkeeping — a marked field
   dropped from the configuration is deleted on the next sync, and a table emptied
@@ -160,6 +162,16 @@ def sync(
         else:
             marker_path.touch()
 
+    if (version_file := _python_version_file(config, root_path)) is not None:
+        version_path, version = version_file
+        current = version_path.read_text() if version_path.is_file() else None
+        if current != version:
+            if check:
+                _print_diff(version_path.name, current or "", version)
+                in_sync = False
+            else:
+                version_path.write_text(version)
+
     for skill_path, desired in _iter_skill_files(config, root_path):
         current = skill_path.read_text() if skill_path.is_file() else None
         if current == desired:
@@ -214,6 +226,15 @@ def _iter_missing_typed_markers(config: ProjectConfig, root: Path) -> Iterator[P
         package_dir = root / package.path
         if package_dir.is_dir() and not (package_dir / "py.typed").exists():
             yield package_dir / "py.typed"
+
+
+def _python_version_file(config: ProjectConfig, root: Path) -> tuple[Path, str] | None:
+    """
+    Get `(path, desired_content)` for the `.python-version` file, if enabled.
+    """
+    if not config.python_version_file or (versions := config.pinned_versions) is None:
+        return None
+    return root / ".python-version", f"{versions.patch(versions.versions[-1])}\n"
 
 
 def _iter_skill_files(

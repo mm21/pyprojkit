@@ -10,9 +10,11 @@ import tomlkit
 from tomlkit.items import Array, Table
 
 from pyprojkit import (
+    DEFAULT_PATCH_VERSIONS,
     AnalysisConfig,
     FormattingConfig,
     ProjectConfig,
+    PythonVersions,
     ToolsConfig,
     sync,
 )
@@ -475,3 +477,44 @@ version = "0.1.0"
     unpinned = replace(config, pinned_python=None)
     assert '"Typing :: Typed"  # ours' in render(config, text)
     assert '"Typing :: Typed"  # ours' in render(unpinned, text)
+
+
+def test_python_version_file(project: Path, config: ProjectConfig):
+    version_config = replace(
+        config,
+        pinned_python=[PythonVersions(3, (14, 14)), PythonVersions(3, (12, 12))],
+        python_version_file=True,
+    )
+    path = project / ".python-version"
+
+    # not written unless enabled
+    sync(config, project)
+    assert not path.exists()
+
+    assert sync(version_config, project, check=True) is False
+    assert not path.exists()
+
+    sync(version_config, project)
+    assert path.read_text() == f"{DEFAULT_PATCH_VERSIONS[(3, 14)]}\n"
+    assert sync(version_config, project, check=True) is True
+
+    # patch overrides apply
+    override_config = replace(
+        version_config,
+        pinned_python=[
+            PythonVersions(3, (14, 14), patch_overrides={(3, 14): "3.14.99"}),
+            PythonVersions(3, (12, 12)),
+        ],
+    )
+    sync(override_config, project)
+    assert path.read_text() == "3.14.99\n"
+
+    # stale contents are overwritten
+    path.write_text("3.14\n")
+    assert sync(override_config, project, check=True) is False
+    sync(override_config, project)
+    assert path.read_text() == "3.14.99\n"
+
+    # disabling keeps the file
+    sync(config, project)
+    assert path.read_text() == "3.14.99\n"

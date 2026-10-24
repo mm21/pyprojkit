@@ -316,6 +316,14 @@ class ProjectConfig:
     and creates an empty `py.typed` file in each package directory if missing.
     """
 
+    python_version_file: bool = False
+    """
+    Whether to write a `.python-version` file at the project root pinning the exact
+    patch release of the newest pinned version, e.g. `3.14.6` (taking
+    `PythonVersions.patch_overrides` into account), so everyone using tools such as uv
+    and pyenv develops against the same interpreter. Requires `pinned_python`.
+    """
+
     def __post_init__(self):
         names = [package.name for package in self.resolved_packages]
         if not names:
@@ -324,6 +332,8 @@ class ProjectConfig:
             raise ConfigError(f"Duplicate packages: {', '.join(duplicates)}")
 
         if self.pinned_versions is None:
+            if self.python_version_file:
+                raise ConfigError("python_version_file requires pinned_python")
             return
         for version in self.pinned_versions.versions:
             if not self.requires_python.contains(version):
