@@ -4,6 +4,7 @@ import nox.registry
 import pytest
 
 from pyprojkit import ConfigError, NoxFactory
+from pyprojkit.versions import DEFAULT_PATCH_VERSIONS
 
 
 @pytest.fixture(autouse=True)
@@ -20,7 +21,10 @@ def test_test_session(project: Path):
     registry = nox.registry.get()
     assert "test" in registry
     func = registry["test"]
-    assert func.python == ["3.12.13", "3.13.13"]
+    assert func.python == [
+        DEFAULT_PATCH_VERSIONS[(3, 12)],
+        DEFAULT_PATCH_VERSIONS[(3, 13)],
+    ]
     assert session is not None
 
     # double registration guarded

@@ -15,9 +15,10 @@ __all__ = [
 ]
 
 DEFAULT_PATCH_VERSIONS: dict[tuple[int, int], str] = {
-    (3, 12): "3.12.13",
-    (3, 13): "3.13.13",
-    (3, 14): "3.14.6",
+    (3, 12): "3.12.15",
+    (3, 13): "3.13.17",
+    (3, 14): "3.14.9",
+    (3, 15): "3.15.1",
 }
 """
 Mapping of minor version to latest known patch release, used to pin nox test sessions.
