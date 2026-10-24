@@ -15,12 +15,18 @@ Managed content:
   if missing, but never removed
 - A `.python-version` file at the project root pinning the newest pinned version's exact
   patch release (as used for nox), if enabled; overwritten when out of date, but never removed
+- `build-system.build-backend` and `build-system.requires`, if enabled; updated to the
+  installed uv's build backend only when it's newer than the required range
 - Individual key/value pairs within tool tables, marked with an inline
   `# pyprojkit-managed` comment; the marker doubles as bookkeeping — a marked field
   dropped from the configuration is deleted on the next sync, and a table emptied
   that way is pruned. All other keys and comments in those tables belong to the
-  project and are preserved. (The marker comment is reserved: don't put it on your
-  own fields.)
+  project and are preserved.
+
+Fields which are only updated when out of date, such as those of the uv build backend,
+are instead marked with an inline `# pyprojkit-tracked` comment; when dropped from the
+configuration, the marker is stripped and the field is kept. (All `# pyprojkit-*`
+comments are reserved: don't put them on your own fields.)
 - The generated `pyprojkit-python` agent skill under
   `<skills_dir>/pyprojkit-python/SKILL.md`, overwritten on every sync and removed when
   dropped from the configuration
@@ -29,10 +35,10 @@ On every non-check sync, the lock file is refreshed via the configured workflow 
 (`uv lock` or `poetry lock`), so manual edits to `pyproject.toml` are picked up too.
 Skipped when no workflow tool is configured.
 
-Everything else (dependencies, build-system, urls, unmanaged fields and tables, etc.) is
-preserved. Output is normalized with toml-sort (as a library, using the same settings as
-the managed `[tool.tomlsort]` table), so a subsequent `toml-sort` run in the format task
-is a no-op.
+Everything else (dependencies, build-system unless enabled as above, urls, unmanaged
+fields and tables, etc.) is preserved. Output is normalized with toml-sort (as a
+library, using the same settings as the managed `[tool.tomlsort]` table), so a
+subsequent `toml-sort` run in the format task is a no-op.
 
 Files synced by pyprojkit < 0.4 (whole-table ownership with a `[tool.pyprojkit]`
 bookkeeping table and "managed by pyprojkit" comments) are migrated in one sync.
@@ -43,6 +49,7 @@ from __future__ import annotations
 import contextlib
 import difflib
 import re
+import subprocess
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -66,7 +73,12 @@ _CLASSIFIER_RE = re.compile(r"^Programming Language :: Python :: \d+(\.\d+)?$")
 _TYPED_CLASSIFIER = "Typing :: Typed"
 
 _MARKER = "pyprojkit-managed"
+_TRACKED_MARKER = "pyprojkit-tracked"
 _LEGACY_MARKER = "managed by pyprojkit"
+
+_UV_BUILD = "uv_build"
+_UV_BUILD_REQ_RE = re.compile(r"^\s*uv[_-]build\s*(?P<spec>[^;]*)", re.IGNORECASE)
+_VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
 _HEADER_LINK = "https://github.com/mm21/pyprojkit"
 _HEADER_COMMENT = f"# managed (in part) by pyprojkit: {_HEADER_LINK}"
@@ -104,6 +116,12 @@ def render(config: ProjectConfig, text: str) -> str:
         raise ConfigError("pyproject.toml has no [project] table")
 
     _update_classifiers(project, config)
+
+    tracked: set[tuple[str, str]] = set()
+    if config.uv_build_backend:
+        _update_build_system(doc, _get_uv_version())
+        tracked |= {("build-system", "build-backend"), ("build-system", "requires")}
+    _update_tracked_markers(doc, tracked)
 
     fields = compute_managed_fields(config)
     fields["project"] = {"requires-python": config.requires_python.specifier}
@@ -235,6 +253,88 @@ def _python_version_file(config: ProjectConfig, root: Path) -> tuple[Path, str] 
     if not config.python_version_file or (versions := config.pinned_versions) is None:
         return None
     return root / ".python-version", f"{versions.patch(versions.versions[-1])}\n"
+
+
+def _get_uv_version() -> tuple[int, int, int]:
+    """
+    Get the installed uv version as (major, minor, patch).
+    """
+    try:
+        output = subprocess.run(
+            ["uv", "--version"], capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise ConfigError(f"Failed to get uv version: {e}") from e
+    if (match := _VERSION_RE.search(output)) is None:
+        raise ConfigError(f"Failed to parse uv version: {output!r}")
+    major, minor, patch = (int(part) for part in match.groups())
+    return major, minor, patch
+
+
+def _update_build_system(doc: TOMLDocument, uv_version: tuple[int, int, int]):
+    """
+    Point `[build-system]` at the uv build backend for the given uv version, unless it
+    already uses a `uv_build` requirement whose range the version doesn't exceed (an
+    older uv never downgrades it).
+
+    Other requirements are kept if the backend is already `uv_build`, else replaced.
+    """
+    build_system = doc.get("build-system")
+    if build_system is None:
+        build_system = tomlkit.table()
+        doc["build-system"] = build_system
+
+    requires = build_system.get("requires", [])
+    index = next(
+        (i for i, r in enumerate(requires) if _UV_BUILD_REQ_RE.match(str(r))), None
+    )
+    is_uv_build = build_system.get("build-backend") == _UV_BUILD and index is not None
+
+    if is_uv_build:
+        match = _UV_BUILD_REQ_RE.match(str(requires[index]))
+        assert match is not None
+        upper = _parse_upper_bound(match["spec"])
+        if upper is None or uv_version < upper:
+            return
+
+    major, minor, patch = uv_version
+    upper_bound = f"{major}.{minor + 1}.0" if major == 0 else f"{major + 1}.0.0"
+    requirement = f"{_UV_BUILD}>={major}.{minor}.{patch},<{upper_bound}"
+
+    build_system["build-backend"] = _UV_BUILD
+    if is_uv_build:
+        requires[index] = requirement
+    else:
+        build_system["requires"] = [requirement]
+
+
+def _update_tracked_markers(doc: TOMLDocument, tracked: set[tuple[str, str]]):
+    """
+    Mark the given `(table_path, key)` fields as tracked, and strip the marker from any
+    other fields carrying it (keeping the fields themselves).
+    """
+    for path, table in _walk_tables(doc):
+        for key, item in table.value.body:
+            if key is None or isinstance(item, (Table, AoT)):
+                continue
+            if (path, key.key) in tracked:
+                item.comment(_TRACKED_MARKER)
+            elif _TRACKED_MARKER in item.trivia.comment:
+                item.trivia.comment = ""
+                item.trivia.comment_ws = ""
+
+
+def _parse_upper_bound(spec: str) -> tuple[int, ...] | None:
+    """
+    Get the exclusive upper bound (`<X.Y[.Z]`) from a version specifier, if any, padded
+    to (major, minor, patch).
+    """
+    for clause in spec.split(","):
+        clause = clause.strip()
+        if clause.startswith("<") and not clause.startswith("<="):
+            parts = tuple(int(p) for p in re.findall(r"\d+", clause)[:3])
+            return parts + (0,) * (3 - len(parts))
+    return None
 
 
 def _iter_skill_files(

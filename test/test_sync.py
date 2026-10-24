@@ -1,5 +1,6 @@
 import contextlib
 import io
+import sys
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -22,7 +23,7 @@ from pyprojkit.cli import main
 from pyprojkit.config.project import SkillConfig
 from pyprojkit.config.tools import BlackConfig, PyrightConfig, TomlSortConfig
 from pyprojkit.skill import render_skill
-from pyprojkit.sync import render
+from pyprojkit.sync import _get_uv_version, render
 
 HEADER = "# managed (in part) by pyprojkit: https://github.com/mm21/pyprojkit"
 
@@ -366,6 +367,10 @@ def test_skill_content(config: ProjectConfig):
         analysis
     )
 
+    # tracked fields are explained only when there are any
+    assert "pyprojkit-tracked" not in render_skill(config)
+    assert "pyprojkit-tracked" in render_skill(replace(config, uv_build_backend=True))
+
 
 def test_check_reports_all_drift(project: Path, config: ProjectConfig):
     sync(config, project)
@@ -518,3 +523,72 @@ def test_python_version_file(project: Path, config: ProjectConfig):
     # disabling keeps the file
     sync(config, project)
     assert path.read_text() == "3.14.99\n"
+
+
+def test_uv_build_backend(
+    project: Path, config: ProjectConfig, monkeypatch: pytest.MonkeyPatch
+):
+    uv_config = replace(config, uv_build_backend=True)
+    path = project / "pyproject.toml"
+
+    def build_system() -> Any:
+        return tomlkit.parse(path.read_text())["build-system"]
+
+    def set_uv_version(version: tuple[int, int, int]):
+        monkeypatch.setattr(
+            sys.modules["pyprojkit.sync"], "_get_uv_version", lambda: version
+        )
+
+    # not updated unless enabled
+    set_uv_version((0, 13, 5))
+    sync(config, project)
+    assert list(build_system()["requires"]) == ["uv_build>=0.11.6,<0.12.0"]
+
+    # within range: values left as-is, but marked as tracked
+    set_uv_version((0, 11, 9))
+    assert sync(uv_config, project, check=True) is False
+    sync(uv_config, project)
+    assert list(build_system()["requires"]) == ["uv_build>=0.11.6,<0.12.0"]
+    assert 'build-backend = "uv_build"  # pyprojkit-tracked' in path.read_text()
+    assert '<0.12.0"]  # pyprojkit-tracked' in path.read_text()
+    assert sync(uv_config, project, check=True) is True
+
+    # older: never downgraded
+    set_uv_version((0, 10, 0))
+    assert sync(uv_config, project, check=True) is True
+
+    # newer: updated
+    set_uv_version((0, 13, 5))
+    assert sync(uv_config, project, check=True) is False
+    sync(uv_config, project)
+    assert build_system()["build-backend"] == "uv_build"
+    assert list(build_system()["requires"]) == ["uv_build>=0.13.5,<0.14.0"]
+    assert sync(uv_config, project, check=True) is True
+
+    # other build backends are replaced
+    text = path.read_text().replace(
+        'build-backend = "uv_build"', 'build-backend = "hatchling.build"'
+    )
+    path.write_text(text.replace("uv_build>=0.13.5,<0.14.0", "hatchling"))
+    sync(uv_config, project)
+    assert build_system()["build-backend"] == "uv_build"
+    assert list(build_system()["requires"]) == ["uv_build>=0.13.5,<0.14.0"]
+
+    # missing build-system is added; 1.x bumps the major version
+    path.write_text(path.read_text().split("[build-system]")[0])
+    set_uv_version((1, 2, 3))
+    sync(uv_config, project)
+    assert build_system()["build-backend"] == "uv_build"
+    assert list(build_system()["requires"]) == ["uv_build>=1.2.3,<2.0.0"]
+    assert path.read_text().count("# pyprojkit-tracked") == 2
+
+    # disabling strips the markers but keeps the fields
+    sync(config, project)
+    assert "pyprojkit-tracked" not in path.read_text()
+    assert build_system()["build-backend"] == "uv_build"
+    assert list(build_system()["requires"]) == ["uv_build>=1.2.3,<2.0.0"]
+
+
+def test_get_uv_version():
+    major, minor, patch = _get_uv_version()
+    assert major >= 0 and minor >= 0 and patch >= 0

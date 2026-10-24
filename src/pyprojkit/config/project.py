@@ -324,6 +324,15 @@ class ProjectConfig:
     and pyenv develops against the same interpreter. Requires `pinned_python`.
     """
 
+    uv_build_backend: bool = False
+    """
+    Whether to keep `[build-system]` on uv's build backend, tracking the installed uv
+    version: on sync, if the installed uv version is newer than the range allowed by the
+    `uv_build` requirement (or there's no such requirement), `build-backend` is set to
+    `"uv_build"` and the requirement to `uv_build>=X.Y.Z,<X.Y+1.0`, the form generated
+    by `uv init`. Requires uv to be installed.
+    """
+
     def __post_init__(self):
         names = [package.name for package in self.resolved_packages]
         if not names:

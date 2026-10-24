@@ -91,6 +91,12 @@ def _render_project(config: ProjectConfig) -> str:
         "overwritten on sync: to change them, edit `pyprojconf.py` and run "
         f"`{sync_cmd}` instead."
     )
+    if config.uv_build_backend:
+        lines.append(
+            "- Fields marked `# pyprojkit-tracked` may be edited by hand, but are "
+            "updated on sync when they fall behind, e.g. the `uv_build` requirement "
+            "when a newer uv is installed."
+        )
 
     return "\n".join(lines)
 

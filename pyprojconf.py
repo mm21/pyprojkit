@@ -12,4 +12,5 @@ config = ProjectConfig(
     tools=create_recommended_tools(),
     typed=True,
     python_version_file=True,
+    uv_build_backend=True,
 )

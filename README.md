@@ -191,10 +191,11 @@ The sync engine owns:
 - `project.requires-python`
 - Python version classifiers (other classifiers are untouched)
 - Individual key/value pairs within tool tables, each marked with an inline `# pyprojkit-managed` comment
+- With `uv_build_backend=True`, `build-system.build-backend` and `build-system.requires`, each marked with an inline `# pyprojkit-tracked` comment: when the installed uv is newer than the required range (or the project isn't on `uv_build` yet), they're updated to `build-backend = "uv_build"` and `uv_build>=X.Y.Z,<X.Y+1.0` for the installed version, the same form `uv init` generates. A requirement whose range already covers the installed uv is left alone, and an older uv never downgrades it. Unlike managed fields, tracked fields can be edited by hand, and disabling the option strips the marker but keeps the fields
 
-The marker comment doubles as bookkeeping: a marked field dropped from your configuration is deleted on the next sync, and a table emptied that way is pruned. (The marker is reserved — don't put it on your own fields.)
+The marker comment doubles as bookkeeping: a marked field dropped from your configuration is deleted on the next sync, and a table emptied that way is pruned. (All `# pyprojkit-*` comments are reserved — don't put them on your own fields.)
 
-Everything else — dependencies, `[tool.uv.sources]`, build system, unmanaged fields inside managed tables, whole unmanaged tables, comments — is preserved. Output is normalized with toml-sort using the same settings as the managed `[tool.tomlsort]` table, so syncing and formatting never fight.
+Everything else — dependencies, `[tool.uv.sources]`, build system (unless `uv_build_backend` is enabled), unmanaged fields inside managed tables, whole unmanaged tables, comments — is preserved. Output is normalized with toml-sort using the same settings as the managed `[tool.tomlsort]` table, so syncing and formatting never fight.
 
 Files synced by PyProjKit < 0.4 (whole-table ownership with a `[tool.pyprojkit]` bookkeeping table) are migrated automatically in a single sync.
 
