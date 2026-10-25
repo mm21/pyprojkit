@@ -452,6 +452,7 @@ class TaskFactory:
             args = [
                 "sphinx-build",
                 "-T",  # show full traceback upon error
+                "-W",  # fail build upon warning
                 sphinx.source_dir,
                 str(_paths.DOC_HTML_PATH),
             ]
