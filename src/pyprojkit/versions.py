@@ -77,15 +77,17 @@ class RequiresPython:
     future-proof.
     """
 
-    min: tuple[int, int]
+    min: tuple[int, int] | tuple[int, int, int]
     """
-    Minimum supported version as (major, minor), e.g. `(3, 12)`.
+    Minimum supported version as (major, minor) or (major, minor, patch), e.g. `(3, 12)`
+    or `(3, 13, 7)`.
     """
 
-    max: tuple[int, int] | None = None
+    max: tuple[int, int] | tuple[int, int, int] | None = None
     """
-    Exclusive upper bound as (major, minor). If not specified, defaults to the next
-    major version after the minimum, e.g. `<4.0` for a minimum of 3.12.
+    Exclusive upper bound as (major, minor) or (major, minor, patch). If not specified,
+    defaults to the next major version after the minimum, e.g. `<4.0` for a minimum of
+    3.12.
     """
 
     exclude: Sequence[tuple[int, int]] = ()
@@ -94,11 +96,11 @@ class RequiresPython:
     """
 
     def __post_init__(self):
-        if self.max is not None and self.max <= self.min:
+        if self.max is not None and _pad(self.max) <= _pad(self.min):
             raise ValueError(f"Invalid requires-python range: {self.min}, {self.max}")
 
     @property
-    def upper(self) -> tuple[int, int]:
+    def upper(self) -> tuple[int, int] | tuple[int, int, int]:
         """
         Exclusive upper bound, derived from the minimum if not specified.
         """
@@ -109,16 +111,25 @@ class RequiresPython:
         """
         Version specifier for `requires-python`.
         """
-        spec = f">={self.min[0]}.{self.min[1]},<{self.upper[0]}.{self.upper[1]}"
+        lower, upper = (".".join(map(str, v)) for v in (self.min, self.upper))
+        spec = f">={lower},<{upper}"
         for maj, min in sorted(set(self.exclude)):
             spec += f",!={maj}.{min}.*"
         return spec
 
-    def contains(self, version: tuple[int, int]) -> bool:
+    def contains(self, version: tuple[int, int] | tuple[int, int, int]) -> bool:
         """
-        Whether a (major, minor) version satisfies the specifier.
+        Whether a version satisfies the specifier. An exact (major, minor, patch)
+        release must satisfy it itself, whereas a (major, minor) version stands for its
+        whole minor series, and is contained if any release of the series is.
         """
-        return self.min <= version < self.upper and version not in self.exclude
+        major, minor = version[0], version[1]
+        if (major, minor) in self.exclude:
+            return False
+        lower, upper = _pad(self.min), _pad(self.upper)
+        if len(version) == 3:
+            return lower <= _pad(version) < upper
+        return lower < (major, minor + 1, 0) and (major, minor, 0) < upper
 
 
 @dataclass(frozen=True)
@@ -162,13 +173,26 @@ class PythonVersionSet:
         Exact patch release for a (major, minor) version, taking overrides from the
         ranges into account.
         """
-        for r in self.ranges:
-            if version in r.patch_overrides:
-                return r.patch_overrides[version]
-        patch = DEFAULT_PATCH_VERSIONS.get(version)
+        patch = self.find_patch(version)
         if patch is None:
             raise ValueError(
                 f"No known patch release for Python {version[0]}.{version[1]}; "
                 f"pass patch_overrides={{{version}: '<release>'}} or update pyprojkit"
             )
         return patch
+
+    def find_patch(self, version: tuple[int, int]) -> str | None:
+        """
+        Like `patch()`, but returns `None` if no patch release is known.
+        """
+        for r in self.ranges:
+            if version in r.patch_overrides:
+                return r.patch_overrides[version]
+        return DEFAULT_PATCH_VERSIONS.get(version)
+
+
+def _pad(version: tuple[int, int] | tuple[int, int, int]) -> tuple[int, int, int]:
+    """
+    Pad a version to (major, minor, patch), so versions of either length compare.
+    """
+    return (version[0], version[1], version[2] if len(version) == 3 else 0)

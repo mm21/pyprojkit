@@ -242,3 +242,63 @@ def test_python_version_file_requires_pinned():
             requires_python=RequiresPython((3, 12)),
             python_version_file=True,
         )
+
+
+def test_requires_python_patch():
+    requires = RequiresPython((3, 13, 7), max=(3, 14))
+    assert requires.specifier == ">=3.13.7,<3.14"
+    assert RequiresPython((3, 13, 7)).specifier == ">=3.13.7,<4.0"
+    assert RequiresPython((3, 12), (3, 14, 2)).specifier == ">=3.12,<3.14.2"
+
+    # minor versions are contained if their series overlaps the range
+    assert requires.contains((3, 13))
+    assert not requires.contains((3, 12))
+    assert not requires.contains((3, 14))
+    assert RequiresPython((3, 12), (3, 14, 2)).contains((3, 14))
+
+    # exact releases must be in range
+    assert requires.contains((3, 13, 7))
+    assert not requires.contains((3, 13, 6))
+    assert not requires.contains((3, 14, 0))
+    assert not RequiresPython((3, 12), exclude=[(3, 13)]).contains((3, 13, 1))
+
+    with pytest.raises(ValueError):
+        RequiresPython((3, 13, 0), (3, 13))
+    with pytest.raises(ValueError):
+        RequiresPython((3, 13, 7), (3, 13, 7))
+
+
+@pytest.mark.parametrize("overrides", [{}, {(3, 13): "3.13.7"}])
+def test_pinned_patch_release_in_range(overrides: dict[tuple[int, int], str]):
+    config = ProjectConfig(
+        packages="p",
+        requires_python=RequiresPython((3, 13, 7), max=(3, 14)),
+        pinned_python=PythonVersions(3, (13, 13), patch_overrides=overrides),
+        python_version_file=True,
+    )
+    assert config.pinned_versions is not None
+    assert config.pinned_versions.versions == [(3, 13)]
+
+
+@pytest.mark.parametrize(
+    "requires, overrides",
+    [
+        # override below the floor
+        (RequiresPython((3, 13, 7)), {(3, 13): "3.13.6"}),
+        # override without a patch is taken as .0
+        (RequiresPython((3, 13, 7)), {(3, 13): "3.13"}),
+        # default release below the floor
+        (RequiresPython((3, 13, 999)), {}),
+        # default release at or above the upper bound
+        (RequiresPython((3, 12), (3, 13, 1)), {}),
+    ],
+)
+def test_pinned_patch_release_out_of_range(
+    requires: RequiresPython, overrides: dict[tuple[int, int], str]
+):
+    with pytest.raises(ConfigError, match="doesn't satisfy requires-python"):
+        ProjectConfig(
+            packages="p",
+            requires_python=requires,
+            pinned_python=PythonVersions(3, (13, 13), patch_overrides=overrides),
+        )

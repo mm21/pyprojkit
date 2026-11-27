@@ -58,7 +58,7 @@ def _render_frontmatter() -> str:
 
 def _render_project(config: ProjectConfig) -> str:
     requires = config.requires_python
-    min_version = f"{requires.min[0]}.{requires.min[1]}"
+    min_version = ".".join(map(str, requires.min))
 
     packages = config.resolved_packages
     if len(packages) == 1:

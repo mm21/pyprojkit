@@ -5,6 +5,7 @@ Project-wide configuration, declared in a project's `pyprojconf.py`.
 from __future__ import annotations
 
 import glob
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Self, Sequence
@@ -41,6 +42,8 @@ __all__ = [
     "PublishConfig",
     "SkillConfig",
 ]
+
+_RELEASE_RE = re.compile(r"(\d+)\.(\d+)(?:\.(\d+))?")
 
 
 @dataclass(kw_only=True)
@@ -282,8 +285,9 @@ class ProjectConfig:
     """
     Specific Python versions which are tested and targeted by tools (classifiers, black,
     mypy, nox): a single range, or a sequence of ranges for discontiguous support, e.g.
-    3.8-3.9 and 3.11-3.12. Must all satisfy `requires_python`. Optional, but required by
-    tools which need specific versions.
+    3.8-3.9 and 3.11-3.12. Each minor series must overlap `requires_python`, and the
+    exact patch release used for it must satisfy `requires_python`. Optional, but
+    required by tools which need specific versions.
     """
 
     source_path: str = "src"
@@ -350,6 +354,7 @@ class ProjectConfig:
                     f"Pinned Python {version[0]}.{version[1]} is outside of "
                     f"requires-python ({self.requires_python.specifier})"
                 )
+            self._check_patch_release(version)
 
     @property
     def pinned_versions(self) -> PythonVersionSet | None:
@@ -419,6 +424,24 @@ class ProjectConfig:
                 continue
             result.append(path)
         return result
+
+    def _check_patch_release(self, version: tuple[int, int]):
+        """
+        Ensure the exact release used for a pinned version satisfies `requires_python`.
+        Versions with no known patch release are left to fail when one is needed.
+        """
+        assert self.pinned_versions is not None
+        release = self.pinned_versions.find_patch(version)
+        if release is None or (match := _RELEASE_RE.match(release)) is None:
+            return
+        major, minor, patch = (int(part or 0) for part in match.groups())
+        if not self.requires_python.contains((major, minor, patch)):
+            raise ConfigError(
+                f"Python {release}, used for pinned Python "
+                f"{version[0]}.{version[1]}, doesn't satisfy requires-python "
+                f"({self.requires_python.specifier}); set a different release via "
+                "PythonVersions.patch_overrides"
+            )
 
 
 @dataclass(frozen=True)

@@ -103,9 +103,18 @@ or run everything at once with `doit preflight`.
 Two separate concepts are configured:
 
 - `requires_python` (required) is the minimum and optional exclusive maximum of interpreters the package can be installed on. It's independent of what you test: if the maximum is omitted it's derived from the minimum as the next major version, so downstream dependency resolution stays future-proof.
-- `pinned_python` (optional) is the specific versions you test and target. `PythonVersions` takes the major version and an inclusive range of minor versions; pass a sequence for discontiguous ranges, e.g. `[PythonVersions(3, (8, 9)), PythonVersions(3, (11, 12))]`. Every pinned version must satisfy `requires_python`.
+- `pinned_python` (optional) is the specific versions you test and target. `PythonVersions` takes the major version and an inclusive range of minor versions; pass a sequence for discontiguous ranges, e.g. `[PythonVersions(3, (8, 9)), PythonVersions(3, (11, 12))]`. Every pinned minor series must overlap `requires_python`.
 
-To exclude known-broken minor versions, use `RequiresPython((3, 12), exclude=[(3, 13)])`, which adds `!=3.13.*`.
+To exclude known-broken minor versions, use `RequiresPython((3, 12), exclude=[(3, 13)])`, which adds `!=3.13.*`. Exclusions apply to whole minor versions only.
+
+`min` and `max` also accept (major, minor, patch), e.g. when a dependency requires a specific patch release:
+
+```python
+requires_python = RequiresPython((3, 13, 7), max=(3, 14))  # requires-python = ">=3.13.7,<3.14"
+pinned_python = PythonVersions(3, (13, 13))
+```
+
+Pinning 3.13 is valid here since part of the 3.13 series is in range. However, the exact patch release used for each pinned version (for nox and `.python-version`, including `patch_overrides`) must satisfy `requires_python`, else a `ConfigError` is raised.
 
 ```python
 requires_python = RequiresPython((3, 12))  # requires-python = ">=3.12,<4.0"
